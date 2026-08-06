@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+<meta name="theme-color" content="#27AE60">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="体重记录">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="description" content="每日体重记录与趋势追踪">
+<link rel="manifest" href="manifest-w.json">
+<title>体重记录</title>
+<style>
+:root {
+  --bg: #F0F4F8;
+  --card: #FFFFFF;
+  --text: #1A2B3C;
+  --text-2: #6B7C8E;
+  --text-3: #A0B0C0;
+  --border: #E0E8F0;
+  --green: #27AE60;
+  --green-l: #E8F8EF;
+  --green-d: #1E8E4F;
+  --red: #EB5757;
+  --orange: #F2994A;
+  --shadow: 0 2px 8px rgba(0,0,0,0.06);
+  --radius: 14px;
+}
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html, body { height:100%; overflow-x:hidden; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.5;
+  padding-bottom: 100px;
+}
+button { font-family:inherit; cursor:pointer; border:none; background:none; color:inherit; }
+input { font-family:inherit; font-size:inherit; color:inherit; outline:none; }
+
+/* 顶部 */
+.header {
+  background: linear-gradient(135deg, #27AE60 0%, #2BC972 100%);
+  color: white;
+  padding: 24px 20px 20px;
+  padding-top: calc(24px + env(safe-area-inset-top, 0px));
+}
+.header h1 { font-size: 20px; font-weight: 700; }
+.header-sub { font-size: 13px; opacity: 0.85; margin-top: 2px; }
+
+/* 当前体重大卡片 */
+.current-card {
+  margin: -12px 16px 16px;
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 24px 20px;
+  box-shadow: var(--shadow);
+  text-align: center;
+  position: relative;
+}
+.current-label { font-size: 13px; color: var(--text-2); }
+.current-weight {
+  font-size: 52px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.1;
+  margin: 4px 0;
+}
+.current-unit { font-size: 16px; color: var(--text-2); font-weight: 400; }
+.current-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 12px;
+  margin-top: 4px;
+}
+.current-delta.down { background: var(--green-l); color: var(--green-d); }
+.current-delta.up { background: #FDEAEA; color: var(--red); }
+.current-delta.same { background: var(--bg); color: var(--text-2); }
+
+/* 趋势图 */
+.chart-card {
+  margin: 0 16px 16px;
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.chart-title { font-size: 15px; font-weight: 700; }
+.chart-range { display: flex; gap: 4px; }
+.range-btn {
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--text-2);
+  background: var(--bg);
+  transition: all 0.15s;
+}
+.range-btn.active { background: var(--green); color: white; }
+.chart-wrap { position: relative; width: 100%; height: 180px; }
+#chart-canvas { width: 100%; height: 100%; }
+.chart-empty { text-align: center; padding: 40px 0; color: var(--text-3); font-size: 13px; }
+
+/* 记录列表 */
+.list-card {
+  margin: 0 16px 16px;
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+.list-title { font-size: 15px; font-weight: 700; margin-bottom: 12px; }
+.record-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.record-item:last-child { border-bottom: none; padding-bottom: 0; }
+.record-item:first-child { padding-top: 0; }
+.record-date {
+  min-width: 80px;
+}
+.record-day { font-size: 16px; font-weight: 700; }
+.record-month { font-size: 12px; color: var(--text-2); }
+.record-weight-col { flex: 1; text-align: center; }
+.record-weight-val { font-size: 18px; font-weight: 700; }
+.record-delta { font-size: 12px; margin-top: 1px; }
+.record-delta.down { color: var(--green-d); }
+.record-delta.up { color: var(--red); }
+.record-delta.same { color: var(--text-3); }
+.record-del {
+  color: var(--text-3);
+  padding: 6px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.record-item:active .record-del, .record-item:hover .record-del { opacity: 1; }
+.record-del:active { color: var(--red); }
+.list-empty { text-align: center; padding: 32px 0; color: var(--text-3); font-size: 13px; }
+
+/* 统计行 */
+.stats-row {
+  display: flex;
+  margin: 0 16px 16px;
+  gap: 10px;
+}
+.stat-box {
+  flex: 1;
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 14px;
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+.stat-label { font-size: 11px; color: var(--text-2); }
+.stat-val { font-size: 18px; font-weight: 700; margin-top: 2px; }
+.stat-val.green { color: var(--green-d); }
+.stat-val.red { color: var(--red); }
+
+/* 底部添加按钮 */
+.add-btn-bar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  padding: 12px 16px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(to top, var(--bg) 70%, transparent);
+  z-index: 100;
+}
+.add-btn {
+  width: 100%;
+  padding: 14px;
+  background: var(--green);
+  color: white;
+  border-radius: var(--radius);
+  font-size: 16px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(39,174,96,0.3);
+  transition: all 0.15s;
+}
+.add-btn:active { transform: scale(0.98); }
+
+/* 弹窗 */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+.modal-overlay.show { display: flex; animation: fadeIn 0.15s; }
+@keyframes fadeIn { from{opacity:0;} to{opacity:1;} }
+.modal {
+  background: var(--card);
+  border-radius: var(--radius);
+  width: 100%;
+  max-width: 380px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  animation: slideUp 0.2s;
+  overflow: hidden;
+}
+@keyframes slideUp { from{transform:translateY(20px);opacity:0;} to{transform:translateY(0);opacity:1;} }
+.modal-header {
+  padding: 20px 20px 0;
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+}
+.modal-body { padding: 20px; }
+.modal-footer { display: flex; padding: 0 20px 20px; gap: 10px; }
+.modal-btn {
+  flex: 1;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+}
+.modal-btn.cancel { background: var(--bg); color: var(--text-2); }
+.modal-btn.confirm { background: var(--green); color: white; }
+.form-group { margin-bottom: 16px; }
+.form-label { display:block; font-size:13px; color:var(--text-2); margin-bottom:6px; }
+.form-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 16px;
+  text-align: center;
+}
+.form-input:focus { border-color: var(--green); }
+.weight-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+}
+.weight-input-row input { max-width: 140px; font-size: 28px; font-weight: 700; }
+.weight-input-row span { font-size: 16px; color: var(--text-2); }
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 90px;
+  left: 50%;
+  transform: translateX(-50%) translateY(100px);
+  background: var(--text);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  z-index: 2000;
+  transition: transform 0.3s;
+  pointer-events: none;
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>体重记录</h1>
+  <div class="header-sub">坚持记录，见证变化 💪</div>
+</div>
+
+<!-- 当前体重 -->
+<div class="current-card">
+  <div class="current-label">最新体重</div>
+  <div class="current-weight" id="latest-weight">--<span class="current-unit"> kg</span></div>
+  <div class="current-delta same" id="latest-delta">暂无记录</div>
+</div>
+
+<!-- 统计 -->
+<div class="stats-row">
+  <div class="stat-box">
+    <div class="stat-label">7天变化</div>
+    <div class="stat-val" id="stat-7d">--</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-label">30天变化</div>
+    <div class="stat-val" id="stat-30d">--</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-label">记录天数</div>
+    <div class="stat-val" id="stat-total">0</div>
+  </div>
+</div>
+
+<!-- 趋势图 -->
+<div class="chart-card">
+  <div class="chart-header">
+    <div class="chart-title">体重趋势</div>
+    <div class="chart-range">
+      <button class="range-btn active" data-range="7">7天</button>
+      <button class="range-btn" data-range="30">30天</button>
+      <button class="range-btn" data-range="90">3月</button>
+    </div>
+  </div>
+  <div class="chart-wrap">
+    <canvas id="chart-canvas"></canvas>
+    <div class="chart-empty" id="chart-empty" style="display:none;">暂无记录，点击下方按钮开始记录</div>
+  </div>
+</div>
+
+<!-- 记录列表 -->
+<div class="list-card">
+  <div class="list-title">历史记录</div>
+  <div id="record-list"></div>
+</div>
+
+<!-- 添加按钮 -->
+<div class="add-btn-bar">
+  <button class="add-btn" onclick="openRecordModal()">+ 记录今日体重</button>
+</div>
+
+<!-- 弹窗 -->
+<div class="modal-overlay" id="modal" onclick="if(event.target.id==='modal')closeModal()">
+  <div class="modal">
+    <div class="modal-header" id="modal-title">记录体重</div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">日期</label>
+        <input type="date" class="form-input" id="f-date">
+      </div>
+      <div class="form-group">
+        <label class="form-label">体重</label>
+        <div class="weight-input-row">
+          <input type="number" class="form-input" id="f-weight" placeholder="0.0" step="0.1" min="20" max="300">
+          <span>kg</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="modal-btn cancel" onclick="closeModal()">取消</button>
+      <button class="modal-btn confirm" onclick="submitRecord()">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+'use strict';
+
+const KEY = 'weight_records';
+let chartRange = 7;
+let editingId = null;
+
+function load() {
+  try { return JSON.parse(localStorage.getItem(KEY)) || []; }
+  catch(e) { return []; }
+}
+function save(data) { localStorage.setItem(KEY, JSON.stringify(data)); }
+function formatDate(d) {
+  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+  return y+'-'+m+'-'+day;
+}
+function todayStr() { return formatDate(new Date()); }
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+let toastTimer;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>el.classList.remove('show'), 2000);
+}
+
+// 弹窗
+window.openRecordModal = function(id) {
+  editingId = id || null;
+  const records = load();
+  const today = todayStr();
+  const existing = id ? records.find(r=>r.id===id) : records.find(r=>r.date===today);
+
+  document.getElementById('modal-title').textContent = id ? '编辑记录' : '记录体重';
+  document.getElementById('f-date').value = (existing||{}).date || today;
+  document.getElementById('f-weight').value = (existing||{}).weight || '';
+  document.getElementById('modal').classList.add('show');
+  setTimeout(()=>document.getElementById('f-weight').focus(), 100);
+};
+window.closeModal = function() {
+  document.getElementById('modal').classList.remove('show');
+  editingId = null;
+};
+window.submitRecord = function() {
+  const date = document.getElementById('f-date').value;
+  const weight = parseFloat(document.getElementById('f-weight').value);
+  if(!date) { showToast('请选择日期'); return; }
+  if(!weight || weight < 20 || weight > 300) { showToast('请输入正确的体重'); return; }
+
+  let records = load();
+  // 同一天覆盖
+  const existingIdx = records.findIndex(r => r.date === date);
+  if(editingId) {
+    const idx = records.findIndex(r=>r.id===editingId);
+    if(idx > -1) { records[idx].weight = weight; records[idx].date = date; }
+  } else if(existingIdx > -1) {
+    records[existingIdx].weight = weight;
+  } else {
+    records.push({ id: 'w_'+Date.now(), date, weight, createdAt: Date.now() });
+  }
+  records.sort((a,b) => a.date.localeCompare(b.date));
+  save(records);
+  closeModal();
+  showToast('已保存');
+  renderAll();
+};
+
+window.deleteRecord = function(id) {
+  let records = load().filter(r=>r.id!==id);
+  save(records);
+  showToast('已删除');
+  renderAll();
+};
+
+// 渲染当前体重
+function renderCurrent() {
+  const records = load();
+  const el = document.getElementById('latest-weight');
+  const deltaEl = document.getElementById('latest-delta');
+  if(records.length === 0) {
+    el.innerHTML = '--<span class="current-unit"> kg</span>';
+    deltaEl.className = 'current-delta same';
+    deltaEl.textContent = '暂无记录';
+    return;
+  }
+  const latest = records[records.length - 1];
+  el.innerHTML = latest.weight.toFixed(1) + '<span class="current-unit"> kg</span>';
+
+  if(records.length >= 2) {
+    const prev = records[records.length - 2];
+    const diff = latest.weight - prev.weight;
+    if(Math.abs(diff) < 0.05) {
+      deltaEl.className = 'current-delta same';
+      deltaEl.textContent = '与上次持平';
+    } else if(diff > 0) {
+      deltaEl.className = 'current-delta up';
+      deltaEl.textContent = '↑ ' + diff.toFixed(1) + ' kg';
+    } else {
+      deltaEl.className = 'current-delta down';
+      deltaEl.textContent = '↓ ' + Math.abs(diff).toFixed(1) + ' kg';
+    }
+  } else {
+    deltaEl.className = 'current-delta same';
+    deltaEl.textContent = '首次记录';
+  }
+}
+
+// 渲染统计
+function renderStats() {
+  const records = load();
+  document.getElementById('stat-total').textContent = records.length;
+  if(records.length < 2) {
+    document.getElementById('stat-7d').textContent = '--';
+    document.getElementById('stat-30d').textContent = '--';
+    return;
+  }
+  const latest = records[records.length-1];
+  const now = new Date(latest.date);
+
+  // 7天前
+  const d7 = new Date(now); d7.setDate(d7.getDate()-7);
+  const r7 = findClosest(records, d7);
+  const el7 = document.getElementById('stat-7d');
+  if(r7) {
+    const diff = latest.weight - r7.weight;
+    el7.textContent = (diff>0?'+':'') + diff.toFixed(1);
+    el7.className = 'stat-val ' + (diff>0?'red':diff<0?'green':'');
+  } else { el7.textContent = '--'; el7.className='stat-val'; }
+
+  // 30天前
+  const d30 = new Date(now); d30.setDate(d30.getDate()-30);
+  const r30 = findClosest(records, d30);
+  const el30 = document.getElementById('stat-30d');
+  if(r30) {
+    const diff = latest.weight - r30.weight;
+    el30.textContent = (diff>0?'+':'') + diff.toFixed(1);
+    el30.className = 'stat-val ' + (diff>0?'red':diff<0?'green':'');
+  } else { el30.textContent = '--'; el30.className='stat-val'; }
+}
+
+function findClosest(records, targetDate) {
+  const target = formatDate(targetDate);
+  let best = null, minDiff = Infinity;
+  for(let r of records) {
+    const diff = Math.abs(new Date(r.date) - new Date(target));
+    if(diff < minDiff && diff <= 3*86400000) { minDiff = diff; best = r; }
+  }
+  return best;
+}
+
+// 渲染趋势图
+function renderChart() {
+  const records = load();
+  const canvas = document.getElementById('chart-canvas');
+  const emptyEl = document.getElementById('chart-empty');
+
+  // 按范围筛选
+  const days = chartRange;
+  const now = new Date();
+  const startDate = new Date(now); startDate.setDate(startDate.getDate() - (days-1));
+  const filtered = records.filter(r => new Date(r.date) >= startDate);
+
+  if(filtered.length === 0) {
+    canvas.style.display = 'none';
+    emptyEl.style.display = 'block';
+    return;
+  }
+  canvas.style.display = '';
+  emptyEl.style.display = 'none';
+
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.offsetWidth, h = canvas.offsetHeight;
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  // 数据
+  const weights = filtered.map(r => r.weight);
+  const minW = Math.min(...weights) - 1;
+  const maxW = Math.max(...weights) + 1;
+  const range = maxW - minW || 1;
+
+  const padL = 36, padR = 12, padT = 12, padB = 24;
+  const cw = w - padL - padR;
+  const ch = h - padT - padB;
+
+  // 背景网格
+  ctx.strokeStyle = '#F0F0F0';
+  ctx.lineWidth = 1;
+  ctx.font = '10px sans-serif';
+  ctx.fillStyle = '#A0B0C0';
+  ctx.textAlign = 'right';
+  for(let i = 0; i <= 4; i++) {
+    const y = padT + (ch/4) * i;
+    ctx.beginPath();
+    ctx.moveTo(padL, y);
+    ctx.lineTo(w - padR, y);
+    ctx.stroke();
+    const val = maxW - (range/4) * i;
+    ctx.fillText(val.toFixed(1), padL - 4, y + 3);
+  }
+
+  // 日期标签
+  ctx.textAlign = 'center';
+  if(filtered.length <= 7) {
+    filtered.forEach((r, i) => {
+      const x = padL + (cw/(filtered.length-1 || 1)) * i;
+      const d = new Date(r.date);
+      const label = (d.getMonth()+1) + '/' + d.getDate();
+      ctx.fillText(label, x, h - 6);
+    });
+  } else {
+    const step = Math.ceil(filtered.length / 5);
+    filtered.forEach((r, i) => {
+      if(i % step === 0 || i === filtered.length-1) {
+        const x = padL + (cw/(filtered.length-1 || 1)) * i;
+        const d = new Date(r.date);
+        ctx.fillText((d.getMonth()+1)+'/'+d.getDate(), x, h - 6);
+      }
+    });
+  }
+
+  // 曲线填充
+  ctx.beginPath();
+  filtered.forEach((r, i) => {
+    const x = padL + (cw/(filtered.length-1 || 1)) * i;
+    const y = padT + ch - ((r.weight - minW) / range) * ch;
+    if(i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.lineTo(padL + cw, padT + ch);
+  ctx.lineTo(padL, padT + ch);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, padT, 0, padT + ch);
+  grad.addColorStop(0, 'rgba(39,174,96,0.2)');
+  grad.addColorStop(1, 'rgba(39,174,96,0)');
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // 曲线
+  ctx.beginPath();
+  ctx.strokeStyle = '#27AE60';
+  ctx.lineWidth = 2.5;
+  ctx.lineJoin = 'round';
+  filtered.forEach((r, i) => {
+    const x = padL + (cw/(filtered.length-1 || 1)) * i;
+    const y = padT + ch - ((r.weight - minW) / range) * ch;
+    if(i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // 数据点
+  filtered.forEach((r, i) => {
+    const x = padL + (cw/(filtered.length-1 || 1)) * i;
+    const y = padT + ch - ((r.weight - minW) / range) * ch;
+    ctx.beginPath();
+    ctx.arc(x, y, 3, 0, 2*Math.PI);
+    ctx.fillStyle = '#27AE60';
+    ctx.fill();
+    ctx.strokeStyle = '#FFF';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  });
+
+  // 最新点高亮
+  if(filtered.length > 0) {
+    const last = filtered[filtered.length-1];
+    const x = padL + cw;
+    const y = padT + ch - ((last.weight - minW) / range) * ch;
+    ctx.beginPath();
+    ctx.arc(x, y, 5, 0, 2*Math.PI);
+    ctx.fillStyle = '#27AE60';
+    ctx.fill();
+    ctx.strokeStyle = '#FFF';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // 标注数值
+    ctx.fillStyle = '#1A2B3C';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(last.weight.toFixed(1) + 'kg', x - 8, y - 8);
+  }
+}
+
+// 渲染列表
+function renderList() {
+  const records = load().slice().reverse();
+  const el = document.getElementById('record-list');
+  if(records.length === 0) {
+    el.innerHTML = '<div class="list-empty">暂无记录，点击下方按钮开始</div>';
+    return;
+  }
+  // 计算每次与上次的差值
+  const all = load();
+  el.innerHTML = records.map((r, i) => {
+    const origIdx = all.findIndex(x=>x.id===r.id);
+    const prev = origIdx > 0 ? all[origIdx-1] : null;
+    let deltaHtml = '<div class="record-delta same">—</div>';
+    if(prev) {
+      const diff = r.weight - prev.weight;
+      if(Math.abs(diff) < 0.05) deltaHtml = '<div class="record-delta same">持平</div>';
+      else if(diff > 0) deltaHtml = '<div class="record-delta up">↑ '+diff.toFixed(1)+'kg</div>';
+      else deltaHtml = '<div class="record-delta down">↓ '+Math.abs(diff).toFixed(1)+'kg</div>';
+    }
+    const d = new Date(r.date);
+    const isToday = r.date === todayStr();
+    return `
+      <div class="record-item">
+        <div class="record-date">
+          <div class="record-day">${d.getDate()}</div>
+          <div class="record-month">${d.getMonth()+1}月${isToday?' · 今天':''}</div>
+        </div>
+        <div class="record-weight-col">
+          <div class="record-weight-val" onclick="openRecordModal('${r.id}')">${r.weight.toFixed(1)} kg</div>
+          ${deltaHtml}
+        </div>
+        <button class="record-del" onclick="deleteRecord('${r.id}')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        </button>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderAll() {
+  renderCurrent();
+  renderStats();
+  renderChart();
+  renderList();
+}
+
+// 初始化
+function init() {
+  // 范围切换
+  document.querySelectorAll('.range-btn').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('.range-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      chartRange = parseInt(btn.dataset.range);
+      renderChart();
+    };
+  });
+  // 窗口大小变化重绘图表
+  window.addEventListener('resize', () => { renderChart(); });
+  // ESC关闭弹窗
+  document.addEventListener('keydown', e => {
+    if(e.key === 'Escape') closeModal();
+    if(e.key === 'Enter' && document.getElementById('modal').classList.contains('show')) {
+      submitRecord();
+    }
+  });
+  renderAll();
+}
+
+if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+else init();
+})();
+</script>
+</body>
+</html>

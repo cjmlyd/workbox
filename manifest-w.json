@@ -1,0 +1,26 @@
+{
+  "name": "体重记录",
+  "short_name": "体重记录",
+  "description": "每日体重记录与趋势追踪",
+  "start_url": "./weight.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F0F4F8",
+  "theme_color": "#27AE60",
+  "lang": "zh-CN",
+  "scope": "./",
+  "icons": [
+    {
+      "src": "icon-w-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-w-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
