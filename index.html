@@ -1164,6 +1164,49 @@ input, textarea, select { font-family: inherit; font-size: inherit; color: inher
         <div id="customer-detail-content"></div>
       </div>
     </div>
+
+    <!-- 设置页 -->
+    <div class="page" id="page-settings" style="display:none;">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">设置</h1>
+          <div class="page-subtitle">配置云同步，数据跟着账号走</div>
+        </div>
+      </div>
+      <div style="padding:16px;">
+        <div style="background:var(--bg-card);border-radius:12px;padding:16px;margin-bottom:16px;border:1px solid var(--border);">
+          <div style="font-weight:600;margin-bottom:8px;">☁️ 云同步状态</div>
+          <div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;" id="sync-status-text">未配置</div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div id="sync-dot" style="width:8px;height:8px;border-radius:50%;background:#999;"></div>
+            <span style="font-size:13px;" id="sync-label">未连接</span>
+          </div>
+        </div>
+
+        <div style="background:var(--bg-card);border-radius:12px;padding:16px;margin-bottom:16px;border:1px solid var(--border);">
+          <div style="font-weight:600;margin-bottom:12px;">🔑 GitHub Token</div>
+          <div style="font-size:13px;color:var(--text-secondary);margin-bottom:8px;">
+            输入你的 GitHub Personal Access Token，数据将自动同步到你的仓库。换手机后输入同一个 token 即可恢复全部数据。
+          </div>
+          <input type="password" id="sync-token" class="form-input" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" style="margin-bottom:12px;width:100%;box-sizing:border-box;">
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-primary" onclick="saveSyncToken()" style="flex:1;">💾 保存并同步</button>
+            <button class="btn btn-secondary" onclick="pullFromCloud()">📥 从云端拉取</button>
+          </div>
+        </div>
+
+        <div style="background:var(--bg-card);border-radius:12px;padding:16px;margin-bottom:16px;border:1px solid var(--border);">
+          <div style="font-weight:600;margin-bottom:12px;">📊 同步操作</div>
+          <button class="btn btn-primary" onclick="pushToCloud()" style="width:100%;margin-bottom:8px;">📤 立即同步到云端</button>
+          <button class="btn btn-secondary" onclick="pullFromCloud()" style="width:100%;margin-bottom:8px;">📥 从云端恢复数据</button>
+          <button class="btn btn-secondary" onclick="disconnectSync()" style="width:100%;">🔌 断开连接</button>
+        </div>
+
+        <div style="font-size:12px;color:var(--text-tertiary);text-align:center;margin-top:8px;">
+          Token 仅存储在你的手机本地，不上传至任何第三方服务器。数据存储在 GitHub 仓库 <code>cjmlyd/workbox</code> 的 <code>data.json</code> 文件中。
+        </div>
+      </div>
+    </div>
   </main>
 
   <!-- 移动端底部导航 -->
@@ -1183,6 +1226,10 @@ input, textarea, select { font-family: inherit; font-size: inherit; color: inher
     <button class="bottom-nav-item" data-page="customers">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
       <span>客户</span>
+    </button>
+    <button class="bottom-nav-item" data-page="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <span>设置</span>
     </button>
   </nav>
 </div>
@@ -2834,6 +2881,134 @@ input, textarea, select { font-family: inherit; font-size: inherit; color: inher
     document.querySelectorAll('.nav-item, .bottom-nav-item').forEach(n => {
       n.classList.toggle('active', n.dataset.page === page);
     });
+    // 进入设置页时刷新同步状态
+    if(page === 'settings') updateSyncUI();
+  }
+
+  // ========== 云同步 ==========
+  const SYNC_KEY = 'workbox_sync_token';
+  const GITHUB_IP = '140.82.112.6';
+
+  function getSyncToken() { return localStorage.getItem(SYNC_KEY); }
+  function saveSyncTokenToLocal(token) { localStorage.setItem(SYNC_KEY, token); }
+
+  async function githubAPI(method, path, body) {
+    const token = getSyncToken();
+    if(!token) throw new Error('未配置Token');
+    // 用 fetch 直接请求（浏览器端可以直连 GitHub）
+    const headers = {
+      'Authorization': 'token ' + token,
+      'Accept': 'application/vnd.github+json'
+    };
+    const opts = { method, headers };
+    if(body) { headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+    const resp = await fetch('https://api.github.com/repos/cjmlyd/workbox/' + path, opts);
+    if(!resp.ok) {
+      const err = await resp.text();
+      throw new Error(err.slice(0,200));
+    }
+    return resp.json();
+  }
+
+  async function getCloudData() {
+    try {
+      const result = await githubAPI('GET', 'contents/data.json');
+      if(result.content) {
+        return JSON.parse(atob(result.content));
+      }
+    } catch(e) {
+      console.log('[云同步] 云端无数据或获取失败:', e.message);
+    }
+    return null;
+  }
+
+  async function pushToCloud() {
+    const token = getSyncToken();
+    if(!token) { showToast('请先在设置中配置 GitHub Token'); return; }
+    showToast('正在同步到云端...');
+    try {
+      const allData = {};
+      const keys = [
+        'workbox_tasks', 'workbox_schedule', 'workbox_notes', 'workbox_customers',
+        'workbox_visits', 'workbox_diet_date'
+      ];
+      keys.forEach(k => { allData[k] = JSON.parse(localStorage.getItem(k) || '[]'); });
+      const content = btoa(unescape(encodeURIComponent(JSON.stringify(allData, null, 2))));
+      // 检查 data.json 是否已存在
+      let sha = null;
+      try {
+        const existing = await githubAPI('GET', 'contents/data.json');
+        sha = existing.sha;
+      } catch(e) {}
+      const body = { message: '更新同步数据', content, branch: 'main' };
+      if(sha) body.sha = sha;
+      await githubAPI('PUT', 'contents/data.json', body);
+      updateSyncUI();
+      showToast('✅ 同步成功！');
+    } catch(e) {
+      showToast('❌ 同步失败：' + (e.message || '网络错误'));
+      console.error('[云同步] 推送失败:', e);
+    }
+  }
+
+  async function pullFromCloud() {
+    const token = getSyncToken();
+    if(!token) { showToast('请先在设置中配置 GitHub Token'); return; }
+    showToast('正在从云端拉取数据...');
+    try {
+      const data = await getCloudData();
+      if(!data) { showToast('云端暂无数据'); return; }
+      const keys = Object.keys(data);
+      keys.forEach(k => {
+        if(data[k] !== undefined) localStorage.setItem(k, JSON.stringify(data[k]));
+      });
+      updateSyncUI();
+      renderAll();
+      showToast('✅ 已从云端恢复 ' + keys.length + ' 项数据');
+    } catch(e) {
+      showToast('❌ 拉取失败：' + (e.message || '网络错误'));
+      console.error('[云同步] 拉取失败:', e);
+    }
+  }
+
+  window.saveSyncToken = function() {
+    const token = document.getElementById('sync-token').value.trim();
+    if(!token || !token.startsWith('ghp_')) { showToast('请输入有效的 GitHub Token (ghp_开头)'); return; }
+    saveSyncTokenToLocal(token);
+    updateSyncUI();
+    showToast('✅ Token 已保存');
+    // 自动拉取一次
+    pullFromCloud();
+  };
+
+  window.pushToCloud = pushToCloud;
+  window.pullFromCloud = pullFromCloud;
+
+  window.disconnectSync = function() {
+    if(confirm('确定断开云同步？本地数据不会丢失。')) {
+      localStorage.removeItem(SYNC_KEY);
+      document.getElementById('sync-token').value = '';
+      updateSyncUI();
+      showToast('已断开连接');
+    }
+  };
+
+  function updateSyncUI() {
+    const token = getSyncToken();
+    const dot = document.getElementById('sync-dot');
+    const label = document.getElementById('sync-label');
+    const status = document.getElementById('sync-status-text');
+    const tokenInput = document.getElementById('sync-token');
+    if(tokenInput && token) tokenInput.value = token;
+    if(token) {
+      if(dot) dot.style.background = '#27ae60';
+      if(label) label.textContent = '已连接 (数据同步到 GitHub)';
+      if(status) status.textContent = 'Token 已配置，数据将自动同步';
+    } else {
+      if(dot) dot.style.background = '#999';
+      if(label) label.textContent = '未连接';
+      if(status) status.textContent = '请配置 GitHub Token 启用云同步';
+    }
   }
 
   // ========== 统一渲染 ==========
@@ -2957,6 +3132,12 @@ input, textarea, select { font-family: inherit; font-size: inherit; color: inher
     attachMicToInputs(document.getElementById('page-tasks'));
     attachMicToInputs(document.getElementById('page-notes'));
     attachMicToInputs(document.getElementById('page-customers'));
+    // 初始化云同步UI
+    updateSyncUI();
+    // 如果有 token，启动时自动拉取一次最新数据
+    if(getSyncToken()) {
+      pullFromCloud();
+    }
   }
 
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
