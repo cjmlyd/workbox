@@ -308,7 +308,7 @@ textarea{resize:vertical;min-height:80px}
       <div class="card-body" style="color:var(--text2);font-size:13px">
         <p>工作助手 · 医药代表日常工作管理</p>
         <p style="margin-top:4px">数据保存在手机本地，建议定期导出备份到微信/网盘。</p>
-        <p style="margin-top:4px;color:var(--text3)">版本 v2.6</p>
+        <p style="margin-top:4px;color:var(--text3)">版本 v2.7</p>
       </div>
     </div>
   </div>
@@ -512,27 +512,37 @@ function addSchedule(data){
   s.push(Object.assign({id:DB.genId(), created:Date.now()}, data));
   DB.set('schedules', s);
 }
+function updateSchedule(id, patch){
+  const s = getSchedules();
+  const item = s.find(x=>x.id===id);
+  if(item) Object.assign(item, patch);
+  DB.set('schedules', s);
+}
 function deleteSchedule(id){ DB.set('schedules', getSchedules().filter(s=>s.id!==id)); }
-function openScheduleModal(){
+function openScheduleModal(editId){
+  const s = editId ? getSchedules().find(x=>x.id===editId) : null;
   const today = document.getElementById('scheduleDate').value || todayStr();
   const body = '<div class="form-group"><label class="form-label">日期</label>'+
-    '<input type="date" id="schDate" value="'+today+'"></div>'+
+    '<input type="date" id="schDate" value="'+escAttr(s?s.date:today)+'"></div>'+
     '<div class="form-group"><label class="form-label">时间段</label>'+
-    '<select id="schTime"><option value="上午">上午</option><option value="下午">下午</option><option value="全天">全天</option></select></div>'+
+    '<select id="schTime"><option value="上午"'+(s&&s.time==='上午'?' selected':'')+'>上午</option>'+
+    '<option value="下午"'+(s&&s.time==='下午'?' selected':'')+'>下午</option>'+
+    '<option value="全天"'+(s&&s.time==='全天'?' selected':'')+'>全天</option></select></div>'+
     '<div class="form-group"><label class="form-label">内容</label>'+
-    '<input type="text" id="schTitle" placeholder="如：科室会/产品培训"></div>'+
+    '<input type="text" id="schTitle" placeholder="如：科室会/产品培训" value="'+escAttr(s?s.title:'')+'"></div>'+
     '<div class="form-group"><label class="form-label">地点/客户</label>'+
-    '<input type="text" id="schLocation" placeholder="可选"></div>';
-  openModal('新建日程', body, function(){
+    '<input type="text" id="schLocation" placeholder="可选" value="'+escAttr(s?s.location:'')+'"></div>';
+  openModal(editId?'编辑日程':'新建日程', body, function(){
     const title = document.getElementById('schTitle').value.trim();
     if(!title){ toast('请输入内容'); return; }
-    addSchedule({
+    const data = {
       date: document.getElementById('schDate').value,
       time: document.getElementById('schTime').value,
       title: title,
       location: document.getElementById('schLocation').value.trim()
-    });
-    closeModal(); renderSchedule(); renderOverview(); toast('已添加');
+    };
+    if(editId) updateSchedule(editId, data); else addSchedule(data);
+    closeModal(); renderSchedule(); renderOverview(); toast(editId?'已更新':'已添加');
   });
 }
 function renderSchedule(){
@@ -573,13 +583,14 @@ function renderSchedule(){
   });
   el.innerHTML = items.map(s=>{
     const dLabel = s.date === today ? '今天' : dateLabel(s.date)+'('+WEEK_CN[weekdayOf(s.date)]+')';
-    return '<div class="list-item">'+
+    return '<div class="list-item" style="cursor:pointer" onclick="openScheduleModal(\''+s.id+'\')">'+
       '<div class="list-avatar">🗓️</div>'+
       '<div class="list-info">'+
         '<div class="list-name">'+escHtml(s.title)+'</div>'+
         '<div class="list-meta">'+dLabel+(s.time?' · '+escHtml(s.time):'')+(s.location?' · '+escHtml(s.location):'')+'</div>'+
       '</div>'+
-      '<button class="btn btn-sm btn-danger" onclick="deleteSchedule(\''+s.id+'\');renderSchedule();renderOverview()">删除</button>'+
+      '<button class="btn btn-sm" onclick="event.stopPropagation();openScheduleModal(\''+s.id+'\')" style="color:var(--accent)">✏️</button>'+
+      '<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteSchedule(\''+s.id+'\');renderSchedule();renderOverview()">删除</button>'+
     '</div>';
   }).join('');
 }
@@ -942,7 +953,7 @@ function renderOverview(){
 // ==================== 导入导出 ====================
 function exportData(){
   const keys = ['tasks','schedules','customers','visits'];
-  const allData = {app:'工作助手', version:'2.6', exportDate: new Date().toISOString()};
+  const allData = {app:'工作助手', version:'2.7', exportDate: new Date().toISOString()};
   keys.forEach(k => { allData[k] = DB.get(k); });
   const blob = new Blob([JSON.stringify(allData, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
@@ -998,7 +1009,7 @@ function renderDataStats(){
 
 // ==================== 初始化 ====================
 function init(){
-  document.getElementById('headerDate').textContent = new Date().toLocaleDateString('zh-CN',{month:'long',day:'numeric',weekday:'long'}) + ' · V2.6';
+  document.getElementById('headerDate').textContent = new Date().toLocaleDateString('zh-CN',{month:'long',day:'numeric',weekday:'long'}) + ' · V2.7';
   document.getElementById('scheduleDate').value = todayStr();
   renderOverview();
   renderDataStats();
