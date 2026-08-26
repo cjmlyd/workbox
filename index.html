@@ -949,7 +949,7 @@ function renderDataStats(){
 
 // ==================== 初始化 ====================
 function init(){
-  document.getElementById('headerDate').textContent = new Date().toLocaleDateString('zh-CN',{month:'long',day:'numeric',weekday:'long'});
+  document.getElementById('headerDate').textContent = new Date().toLocaleDateString('zh-CN',{month:'long',day:'numeric',weekday:'long'}) + ' · V2.2';
   document.getElementById('scheduleDate').value = todayStr();
   renderOverview();
   renderDataStats();
