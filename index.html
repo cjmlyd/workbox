@@ -308,7 +308,7 @@ textarea{resize:vertical;min-height:80px}
       <div class="card-body" style="color:var(--text2);font-size:13px">
         <p>工作助手 · 医药代表日常工作管理</p>
         <p style="margin-top:4px">数据保存在手机本地，建议定期导出备份到微信/网盘。</p>
-        <p style="margin-top:4px;color:var(--text3)">版本 v2.2</p>
+        <p style="margin-top:4px;color:var(--text3)">版本 v2.3</p>
       </div>
     </div>
   </div>
@@ -640,6 +640,16 @@ function toggleAutoTask(key, name, label, hospital, date){
   }
   renderSchedule(); renderTasks(); renderOverview();
 }
+// 值班间隔步进器（+/-）
+function stepEvery(n){
+  const el = document.getElementById('dutyEvery');
+  if(!el) return;
+  let v = parseInt(el.value) || 4;
+  v = Math.max(1, Math.min(60, v + n));
+  el.value = v;
+  const show = document.getElementById('dutyEveryShow');
+  if(show) show.textContent = v;
+}
 // 门诊配置行（弹窗内动态添加）
 function addClinicRow(day, time){
   const wrap = document.getElementById('clinicRows');
@@ -693,23 +703,26 @@ function openCustomerModal(editId){
     // ===== 值班配置 =====
     '<div style="border-top:1px solid var(--border);margin:16px 0 12px;padding-top:12px">'+
       '<div class="form-label" style="margin-bottom:8px;font-size:14px;color:var(--text)">🏥 值班排班（周期轮值）</div>'+
-      '<label style="display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:10px;cursor:pointer">'+
-        '<input type="checkbox" id="dutyOn" style="width:auto" '+(duty.on?'checked':'')+' onchange="document.getElementById(\'dutyCfg\').style.display=this.checked?\'block\':\'none\'"> 启用值班</label>'+
+      '<label style="display:flex;align-items:center;gap:10px;font-size:14px;margin-bottom:10px;cursor:pointer;background:var(--bg);padding:10px 12px;border-radius:8px">'+
+        '<input type="checkbox" id="dutyOn" style="width:18px;height:18px;accent-color:var(--accent);flex-shrink:0" '+(duty.on?'checked':'')+' onchange="document.getElementById(\'dutyCfg\').style.display=this.checked?\'block\':\'none\'"> 启用值班</label>'+
       '<div id="dutyCfg" style="display:'+(duty.on?'block':'none')+'">'+
-        '<div class="form-row">'+
-          '<div class="form-group"><label class="form-label">起始值班日</label>'+
-          '<input type="date" id="dutyStart" value="'+escAttr(duty.start||'')+'"></div>'+
-          '<div class="form-group"><label class="form-label">每几天一轮</label>'+
-          '<input type="number" id="dutyEvery" min="1" value="'+(duty.every||4)+'"></div>'+
+        '<div class="form-group"><label class="form-label">起始值班日</label>'+
+        '<input type="date" id="dutyStart" value="'+escAttr(duty.start||'')+'" style="font-size:16px;padding:12px"></div>'+
+        '<div class="form-group"><label class="form-label">值班间隔</label>'+
+        '<div style="display:flex;align-items:center;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--card)">'+
+          '<button type="button" onclick="stepEvery(-1)" style="width:46px;height:46px;font-size:22px;font-weight:700;color:var(--accent);background:var(--bg);border:none;border-right:1px solid var(--border)">−</button>'+
+          '<div style="flex:1;text-align:center;font-size:15px;font-weight:600">每 <b id="dutyEveryShow" style="color:var(--accent);font-size:19px">'+(duty.every||4)+'</b> 天一轮</div>'+
+          '<button type="button" onclick="stepEvery(1)" style="width:46px;height:46px;font-size:22px;font-weight:700;color:var(--accent);background:var(--bg);border:none;border-left:1px solid var(--border)">＋</button>'+
         '</div>'+
-        '<p style="font-size:12px;color:var(--text3)">例：8月1号开始、每4天一轮 → 1号、5号、9号…自动算值班日</p>'+
+        '<input type="hidden" id="dutyEvery" value="'+(duty.every||4)+'"></div>'+
+        '<p style="font-size:12px;color:var(--text3);margin-top:8px">例：8月1号开始、每4天一轮 → 1号、5号、9号…自动算值班日</p>'+
       '</div>'+
     '</div>'+
     // ===== 门诊配置 =====
     '<div style="border-top:1px solid var(--border);margin:4px 0 12px;padding-top:12px">'+
       '<div class="form-label" style="margin-bottom:8px;font-size:14px;color:var(--text)">📅 门诊时间（每周固定）</div>'+
       '<div id="clinicRows"></div>'+
-      '<button type="button" class="btn btn-outline btn-sm" onclick="addClinicRow()">+ 添加门诊时间</button>'+
+      '<button type="button" class="btn btn-outline btn-sm" onclick="addClinicRow()" style="margin-top:4px">+ 添加门诊时间</button>'+
       '<p style="font-size:12px;color:var(--text3);margin-top:8px">例：周一上午、周四全天，可添加多条</p>'+
     '</div>'+
     '<div class="form-group"><label class="form-label">备注/画像</label>'+
@@ -893,7 +906,7 @@ function renderOverview(){
 // ==================== 导入导出 ====================
 function exportData(){
   const keys = ['tasks','schedules','customers','visits'];
-  const allData = {app:'工作助手', version:'2.2', exportDate: new Date().toISOString()};
+  const allData = {app:'工作助手', version:'2.3', exportDate: new Date().toISOString()};
   keys.forEach(k => { allData[k] = DB.get(k); });
   const blob = new Blob([JSON.stringify(allData, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
@@ -949,7 +962,7 @@ function renderDataStats(){
 
 // ==================== 初始化 ====================
 function init(){
-  document.getElementById('headerDate').textContent = new Date().toLocaleDateString('zh-CN',{month:'long',day:'numeric',weekday:'long'}) + ' · V2.2';
+  document.getElementById('headerDate').textContent = new Date().toLocaleDateString('zh-CN',{month:'long',day:'numeric',weekday:'long'}) + ' · V2.3';
   document.getElementById('scheduleDate').value = todayStr();
   renderOverview();
   renderDataStats();
