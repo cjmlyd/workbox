@@ -3148,7 +3148,22 @@ input, textarea, select { font-family: inherit; font-size: inherit; color: inher
 // PWA Service Worker 注册
 if('serviceWorker' in navigator) {
   window.addEventListener('load', function() {
-    navigator.serviceWorker.register('sw.js').catch(function(e){ console.log('SW注册失败:', e); });
+    navigator.serviceWorker.register('sw.js', {updateViaCache: 'none'}).then(function(reg) {
+      // 强制检查更新，确保拿到最新版
+      reg.update();
+      // 新 SW 就绪后刷新页面，清掉旧缓存页面
+      reg.addEventListener('updatefound', function() {
+        var w = reg.installing;
+        w.addEventListener('statechange', function() {
+          if(w.state === 'activated') {
+            // 清除所有旧缓存，重新加载最新页面
+            caches.keys().then(function(names) {
+              return Promise.all(names.map(function(n){ return caches.delete(n); }));
+            });
+          }
+        });
+      });
+    }).catch(function(e){ console.log('SW注册失败:', e); });
   });
 }
 // 添加到主屏幕引导
