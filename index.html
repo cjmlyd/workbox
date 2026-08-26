@@ -241,6 +241,10 @@ textarea{resize:vertical;min-height:80px}
       <div class="card-body">
         <input type="date" id="scheduleDate" onchange="renderSchedule()" style="margin-bottom:12px">
       </div>
+      <div id="autoDutyList"></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">📝 手动日程</span></div>
       <div id="scheduleList"></div>
     </div>
   </div>
@@ -304,7 +308,7 @@ textarea{resize:vertical;min-height:80px}
       <div class="card-body" style="color:var(--text2);font-size:13px">
         <p>工作助手 · 医药代表日常工作管理</p>
         <p style="margin-top:4px">数据保存在手机本地，建议定期导出备份到微信/网盘。</p>
-        <p style="margin-top:4px;color:var(--text3)">版本 v2.1</p>
+        <p style="margin-top:4px;color:var(--text3)">版本 v2.2</p>
       </div>
     </div>
   </div>
@@ -344,11 +348,24 @@ const DB = {
 // ==================== 工具函数 ====================
 function escHtml(s){ return (s||'').replace(/[<>&"']/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c])) }
 function escAttr(s){ return (s||'').replace(/"/g,'&quot;') }
-function todayStr(){ return new Date().toISOString().slice(0,10) }
-function fmtDate(d){ if(!d) return ''; return d; }
+function todayStr(){
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function addDays(dateStr, n){
+  const d = new Date(dateStr+'T00:00:00');
+  d.setDate(d.getDate()+n);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function daysBetween(fromStr, toStr){
+  const a = new Date(fromStr+'T00:00:00'), b = new Date(toStr+'T00:00:00');
+  return Math.round((b-a)/86400000);
+}
+function weekdayOf(dateStr){ return new Date(dateStr+'T00:00:00').getDay(); }
+const WEEK_CN = ['周日','周一','周二','周三','周四','周五','周六'];
 function formatDate(d){
   if(!d) return '';
-  const dt = new Date(d);
+  const dt = new Date(d+'T00:00:00');
   return (dt.getMonth()+1)+'月'+dt.getDate()+'日';
 }
 
@@ -521,9 +538,33 @@ function openScheduleModal(){
 function renderSchedule(){
   const date = document.getElementById('scheduleDate').value || todayStr();
   document.getElementById('scheduleDate').value = date;
+  // ===== 自动排班（值班/门诊） =====
+  const autoEl = document.getElementById('autoDutyList');
+  const entries = getAutoEntriesForDate(date);
+  const isToday = date === todayStr();
+  const dateLabel = isToday ? '今天' : formatDate(date)+' '+WEEK_CN[weekdayOf(date)];
+  let autoHtml = '<div class="card-header" style="border-bottom:1px solid var(--border)">'+
+    '<span class="card-title">🏥 '+dateLabel+'排班</span>'+
+    '<span style="font-size:12px;color:var(--text3)">勾选加入任务</span></div>';
+  if(entries.length){
+    autoHtml += entries.map(e=>{
+      const checked = isChecked(e.key);
+      return '<div class="list-item">'+
+        '<button class="nav-icon" style="background:none;font-size:22px" onclick="toggleAutoTask(\''+escAttr(e.key)+'\',\''+escAttr(e.name)+'\',\''+escAttr(e.label)+'\',\''+escAttr(e.hospital)+'\',\''+date+'\')">'+(checked?'✅':'⬜')+'</button>'+
+        '<div class="list-info">'+
+          '<div class="list-name'+(checked?' status-done':'')+'">'+escHtml(e.name)+' · '+escHtml(e.label)+'</div>'+
+          '<div class="list-meta">'+escHtml(e.hospital)+(checked?' · 已加入任务':'')+'</div>'+
+        '</div>'+
+      '</div>';
+    }).join('');
+  } else {
+    autoHtml += '<div class="empty-state" style="padding:24px 20px"><div class="empty-text">当天没有客户值班/门诊<br><span style="font-size:12px">在客户资料里设置值班/门诊后自动显示</span></div></div>';
+  }
+  autoEl.innerHTML = autoHtml;
+  // ===== 手动日程 =====
   let items = getSchedules().filter(s=>s.date===date);
   const el = document.getElementById('scheduleList');
-  if(!items.length){ el.innerHTML = '<div class="empty-state"><div class="empty-icon">🗓️</div><div class="empty-text">当天没有日程</div></div>'; return; }
+  if(!items.length){ el.innerHTML = '<div class="empty-state"><div class="empty-icon">🗓️</div><div class="empty-text">暂无手动日程</div></div>'; return; }
   items.sort((a,b)=>(a.time||'').localeCompare(b.time||''));
   el.innerHTML = items.map(s=>{
     return '<div class="list-item">'+
@@ -535,6 +576,82 @@ function renderSchedule(){
       '<button class="btn btn-sm btn-danger" onclick="deleteSchedule(\''+s.id+'\');renderSchedule();renderOverview()">删除</button>'+
     '</div>';
   }).join('');
+}
+
+// ==================== 排班计算（值班/门诊） ====================
+// 值班：起始日 + 每N天一轮，自动循环
+function isDutyDay(c, dateStr){
+  if(!c.duty || !c.duty.on || !c.duty.start) return false;
+  const diff = daysBetween(c.duty.start, dateStr);
+  const every = parseInt(c.duty.every) || 1;
+  return diff >= 0 && diff % every === 0;
+}
+// 门诊：每周固定星期几+时段
+function getClinicsOn(c, dateStr){
+  if(!c.clinics || !c.clinics.length) return [];
+  const wd = weekdayOf(dateStr);
+  return c.clinics.filter(cl => parseInt(cl.day) === wd);
+}
+// 未来N天（含今天）的值班/门诊摘要
+function getUpcoming(c, days){
+  const out = [];
+  const today = todayStr();
+  for(let i=0; i<days; i++){
+    const d = addDays(today, i);
+    const label = i===0 ? '今天' : (i===1 ? '明天' : WEEK_CN[weekdayOf(d)]);
+    if(isDutyDay(c, d)) out.push(label+'值班');
+    getClinicsOn(c, d).forEach(cl => out.push(label+'门诊('+cl.time+')'));
+  }
+  return out;
+}
+// 某天所有客户的自动排班条目
+function getAutoEntriesForDate(dateStr){
+  const out = [];
+  getCustomers().forEach(c => {
+    if(isDutyDay(c, dateStr)){
+      out.push({key: c.id+'|'+dateStr+'|duty', customerId: c.id, name: c.name, hospital: c.hospital||'', label: '值班日'});
+    }
+    getClinicsOn(c, dateStr).forEach(cl => {
+      out.push({key: c.id+'|'+dateStr+'|clinic|'+cl.day+'|'+cl.time, customerId: c.id, name: c.name, hospital: c.hospital||'', label: '门诊·'+cl.time});
+    });
+  });
+  return out;
+}
+// 某条自动排班是否已勾选为任务
+function isChecked(key){
+  return getTasks().some(t => t.autoKey === key);
+}
+// 勾选/取消勾选 → 生成/移除任务
+function toggleAutoTask(key, name, label, hospital, date){
+  const tasks = getTasks();
+  const existing = tasks.find(t => t.autoKey === key);
+  if(existing){
+    DB.set('tasks', tasks.filter(t => t.autoKey !== key));
+    toast('已从任务移除');
+  } else {
+    addTask({
+      title: '拜访 '+name+'（'+label+'）',
+      dueDate: date,
+      priority: 'mid',
+      note: (hospital ? hospital+' · ' : '')+'来自排班',
+      autoKey: key
+    });
+    toast('已加入任务 ✓');
+  }
+  renderSchedule(); renderTasks(); renderOverview();
+}
+// 门诊配置行（弹窗内动态添加）
+function addClinicRow(day, time){
+  const wrap = document.getElementById('clinicRows');
+  if(!wrap) return;
+  const div = document.createElement('div');
+  div.className = 'form-row clinic-row';
+  div.style.marginBottom = '8px';
+  div.style.alignItems = 'center';
+  div.innerHTML = '<select class="cl-day" style="flex:1">'+WEEK_CN.map((w,i)=>'<option value="'+i+'"'+(String(i)===String(day)?' selected':'')+'>'+w+'</option>').join('')+'</select>'+
+    '<select class="cl-time" style="flex:1">'+['上午','下午','全天'].map(t=>'<option'+(t===time?' selected':'')+'>'+t+'</option>').join('')+'</select>'+
+    '<button type="button" class="btn btn-danger btn-sm" onclick="this.parentNode.remove()">✕</button>';
+  wrap.appendChild(div);
 }
 
 // ==================== 客户管理 ====================
@@ -553,6 +670,8 @@ function updateCustomer(id, patch){
 function deleteCustomer(id){ DB.set('customers', getCustomers().filter(c=>c.id!==id)); }
 function openCustomerModal(editId){
   const c = editId ? getCustomers().find(x=>x.id===editId) : null;
+  const duty = (c && c.duty) ? c.duty : {on:false, start:'', every:4};
+  const clinics = (c && c.clinics) ? c.clinics : [];
   const body = '<div class="form-group"><label class="form-label">姓名 *</label>'+
     '<input type="text" id="cName" placeholder="客户姓名" value="'+escAttr(c?c.name:'')+'"></div>'+
     '<div class="form-row"><div class="form-group"><label class="form-label">职称</label>'+
@@ -571,11 +690,47 @@ function openCustomerModal(editId){
     '<input type="text" id="cWechat" placeholder="微信号" value="'+escAttr(c?c.wechat:'')+'"></div></div>'+
     '<div class="form-group"><label class="form-label">推广产品</label>'+
     '<input type="text" id="cProduct" placeholder="如：XX药物" value="'+escAttr(c?c.product:'')+'"></div>'+
+    // ===== 值班配置 =====
+    '<div style="border-top:1px solid var(--border);margin:16px 0 12px;padding-top:12px">'+
+      '<div class="form-label" style="margin-bottom:8px;font-size:14px;color:var(--text)">🏥 值班排班（周期轮值）</div>'+
+      '<label style="display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:10px;cursor:pointer">'+
+        '<input type="checkbox" id="dutyOn" style="width:auto" '+(duty.on?'checked':'')+' onchange="document.getElementById(\'dutyCfg\').style.display=this.checked?\'block\':\'none\'"> 启用值班</label>'+
+      '<div id="dutyCfg" style="display:'+(duty.on?'block':'none')+'">'+
+        '<div class="form-row">'+
+          '<div class="form-group"><label class="form-label">起始值班日</label>'+
+          '<input type="date" id="dutyStart" value="'+escAttr(duty.start||'')+'"></div>'+
+          '<div class="form-group"><label class="form-label">每几天一轮</label>'+
+          '<input type="number" id="dutyEvery" min="1" value="'+(duty.every||4)+'"></div>'+
+        '</div>'+
+        '<p style="font-size:12px;color:var(--text3)">例：8月1号开始、每4天一轮 → 1号、5号、9号…自动算值班日</p>'+
+      '</div>'+
+    '</div>'+
+    // ===== 门诊配置 =====
+    '<div style="border-top:1px solid var(--border);margin:4px 0 12px;padding-top:12px">'+
+      '<div class="form-label" style="margin-bottom:8px;font-size:14px;color:var(--text)">📅 门诊时间（每周固定）</div>'+
+      '<div id="clinicRows"></div>'+
+      '<button type="button" class="btn btn-outline btn-sm" onclick="addClinicRow()">+ 添加门诊时间</button>'+
+      '<p style="font-size:12px;color:var(--text3);margin-top:8px">例：周一上午、周四全天，可添加多条</p>'+
+    '</div>'+
     '<div class="form-group"><label class="form-label">备注/画像</label>'+
     '<textarea id="cProfile" placeholder="客户特点、偏好等">'+escHtml(c?c.profile:'')+'</textarea></div>';
   openModal(editId?'编辑客户':'新建客户', body, function(){
     const name = document.getElementById('cName').value.trim();
     if(!name){ toast('请输入客户姓名'); return; }
+    // 收集值班配置
+    let dutyVal = null;
+    if(document.getElementById('dutyOn').checked){
+      const ds = document.getElementById('dutyStart').value;
+      if(!ds){ toast('请选择起始值班日，或关闭值班开关'); return; }
+      dutyVal = {on: true, start: ds, every: parseInt(document.getElementById('dutyEvery').value)||4};
+    }
+    // 收集门诊配置
+    const clinicVals = [];
+    document.getElementById('clinicRows').querySelectorAll('.clinic-row').forEach(row=>{
+      const d = row.querySelector('.cl-day').value;
+      const t = row.querySelector('.cl-time').value;
+      if(d!=='') clinicVals.push({day: parseInt(d), time: t});
+    });
     const data = {
       name: name,
       title: document.getElementById('cTitle').value.trim(),
@@ -585,11 +740,15 @@ function openCustomerModal(editId){
       phone: document.getElementById('cPhone').value.trim(),
       wechat: document.getElementById('cWechat').value.trim(),
       product: document.getElementById('cProduct').value.trim(),
-      profile: document.getElementById('cProfile').value.trim()
+      profile: document.getElementById('cProfile').value.trim(),
+      duty: dutyVal,
+      clinics: clinicVals
     };
     if(editId) updateCustomer(editId, data); else addCustomer(data);
     closeModal(); renderCustomers(); renderOverview(); toast(editId?'已更新':'已添加');
   });
+  // 回填已有门诊行
+  setTimeout(()=>{ clinics.forEach(cl => addClinicRow(cl.day, cl.time)); }, 60);
 }
 function renderCustomers(){
   const kw = (document.getElementById('customerSearch').value||'').toLowerCase();
@@ -606,11 +765,17 @@ function renderCustomers(){
   el.innerHTML = list.map(c=>{
     const stageColor = c.stage==='已合作'?'var(--accent)':(c.stage==='重点'?'var(--orange)':'var(--blue)');
     const initials = (c.name||'?').slice(0,1);
+    // 最近3天值班/门诊
+    const up = getUpcoming(c, 3);
+    const upHtml = up.length
+      ? '<div class="list-meta" style="color:var(--accent);font-weight:600;margin-top:3px">🏥 '+up.map(escHtml).join(' · ')+'</div>'
+      : '';
     return '<div class="list-item" onclick="openCustomerModal(\''+c.id+'\')">'+
       '<div class="list-avatar">'+escHtml(initials)+'</div>'+
       '<div class="list-info">'+
         '<div class="list-name">'+escHtml(c.name)+(c.title?' · '+escHtml(c.title):'')+'</div>'+
         '<div class="list-meta">'+escHtml(c.hospital||'')+(c.department?' · '+escHtml(c.department):'')+(c.product?' · '+escHtml(c.product):'')+'</div>'+
+        upHtml+
       '</div>'+
       '<div class="list-right">'+
         '<span class="tag-chip" style="background:'+stageColor+'22;color:'+stageColor+'">'+escHtml(c.stage||'')+'</span>'+
@@ -696,16 +861,22 @@ function renderOverview(){
     tEl.innerHTML = '<div class="empty-state"><div class="empty-text">今天没有任务，去看看全部任务</div></div>';
   }
 
-  // 今日日程
+  // 今日日程（含自动排班）
   const sEl = document.getElementById('todayScheduleList');
   const todaySched = getSchedules().filter(s=>s.date===todayStr());
+  const autoEntries = getAutoEntriesForDate(todayStr());
+  let schedHtml = '';
+  if(autoEntries.length){
+    schedHtml += autoEntries.map(e=>'<div class="list-item"><div class="list-avatar">🏥</div>'+
+      '<div class="list-info"><div class="list-name">'+escHtml(e.name)+' · '+escHtml(e.label)+'</div>'+
+      '<div class="list-meta">'+escHtml(e.hospital||'')+' · 排班</div></div></div>').join('');
+  }
   if(todaySched.length){
-    sEl.innerHTML = todaySched.map(s=>'<div class="list-item"><div class="list-avatar">🗓️</div>'+
+    schedHtml += todaySched.map(s=>'<div class="list-item"><div class="list-avatar">🗓️</div>'+
       '<div class="list-info"><div class="list-name">'+escHtml(s.title)+'</div>'+
       '<div class="list-meta">'+escHtml(s.time||'')+(s.location?' · '+escHtml(s.location):'')+'</div></div></div>').join('');
-  } else {
-    sEl.innerHTML = '<div class="empty-state"><div class="empty-text">今天没有日程安排</div></div>';
   }
+  sEl.innerHTML = schedHtml || '<div class="empty-state"><div class="empty-text">今天没有日程安排</div></div>';
 
   // 近期拜访
   const vEl = document.getElementById('recentVisitList');
@@ -722,7 +893,7 @@ function renderOverview(){
 // ==================== 导入导出 ====================
 function exportData(){
   const keys = ['tasks','schedules','customers','visits'];
-  const allData = {app:'工作助手', version:'2.1', exportDate: new Date().toISOString()};
+  const allData = {app:'工作助手', version:'2.2', exportDate: new Date().toISOString()};
   keys.forEach(k => { allData[k] = DB.get(k); });
   const blob = new Blob([JSON.stringify(allData, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
