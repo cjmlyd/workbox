@@ -244,7 +244,7 @@ textarea{resize:vertical;min-height:80px}
       <div id="autoDutyList"></div>
     </div>
     <div class="card">
-      <div class="card-header"><span class="card-title">📝 手动日程</span></div>
+      <div class="card-header"><span class="card-title">📝 未来日程（今天及以后）</span></div>
       <div id="scheduleList"></div>
     </div>
   </div>
@@ -308,7 +308,7 @@ textarea{resize:vertical;min-height:80px}
       <div class="card-body" style="color:var(--text2);font-size:13px">
         <p>工作助手 · 医药代表日常工作管理</p>
         <p style="margin-top:4px">数据保存在手机本地，建议定期导出备份到微信/网盘。</p>
-        <p style="margin-top:4px;color:var(--text3)">版本 v2.5</p>
+        <p style="margin-top:4px;color:var(--text3)">版本 v2.6</p>
       </div>
     </div>
   </div>
@@ -542,9 +542,9 @@ function renderSchedule(){
   const autoEl = document.getElementById('autoDutyList');
   const entries = getAutoEntriesForDate(date);
   const isToday = date === todayStr();
-  const dateLabel = isToday ? '今天' : formatDate(date)+' '+WEEK_CN[weekdayOf(date)];
+  const dayLabel = isToday ? '今天' : formatDate(date)+' '+WEEK_CN[weekdayOf(date)];
   let autoHtml = '<div class="card-header" style="border-bottom:1px solid var(--border)">'+
-    '<span class="card-title">🏥 '+dateLabel+'排班</span>'+
+    '<span class="card-title">🏥 '+dayLabel+'排班</span>'+
     '<span style="font-size:12px;color:var(--text3)">勾选加入任务</span></div>';
   if(entries.length){
     autoHtml += entries.map(e=>{
@@ -561,17 +561,23 @@ function renderSchedule(){
     autoHtml += '<div class="empty-state" style="padding:24px 20px"><div class="empty-text">当天没有客户值班/门诊<br><span style="font-size:12px">在客户资料里设置值班/门诊后自动显示</span></div></div>';
   }
   autoEl.innerHTML = autoHtml;
-  // ===== 手动日程 =====
-  let items = getSchedules().filter(s=>s.date===date);
+  // ===== 手动日程：显示今天及以后的所有未来日程 =====
+  const today = todayStr();
+  let items = getSchedules().filter(s => (s.date||'') >= today);
   const el = document.getElementById('scheduleList');
-  if(!items.length){ el.innerHTML = '<div class="empty-state"><div class="empty-icon">🗓️</div><div class="empty-text">暂无手动日程</div></div>'; return; }
-  items.sort((a,b)=>(a.time||'').localeCompare(b.time||''));
+  if(!items.length){ el.innerHTML = '<div class="empty-state"><div class="empty-icon">🗓️</div><div class="empty-text">暂无日程安排<br><span style="font-size:12px">点右上角"+ 新建"添加未来的安排</span></div></div>'; return; }
+  items.sort((a,b)=>{
+    if((a.date||'') !== (b.date||'')) return (a.date||'').localeCompare(b.date||'');
+    const timeOrder = {'上午':0, '下午':1, '全天':2};
+    return (timeOrder[a.time]!==undefined?timeOrder[a.time]:9) - (timeOrder[b.time]!==undefined?timeOrder[b.time]:9);
+  });
   el.innerHTML = items.map(s=>{
+    const dLabel = s.date === today ? '今天' : dateLabel(s.date)+'('+WEEK_CN[weekdayOf(s.date)]+')';
     return '<div class="list-item">'+
       '<div class="list-avatar">🗓️</div>'+
       '<div class="list-info">'+
         '<div class="list-name">'+escHtml(s.title)+'</div>'+
-        '<div class="list-meta">'+escHtml(s.time||'')+(s.location?' · '+escHtml(s.location):'')+'</div>'+
+        '<div class="list-meta">'+dLabel+(s.time?' · '+escHtml(s.time):'')+(s.location?' · '+escHtml(s.location):'')+'</div>'+
       '</div>'+
       '<button class="btn btn-sm btn-danger" onclick="deleteSchedule(\''+s.id+'\');renderSchedule();renderOverview()">删除</button>'+
     '</div>';
@@ -936,7 +942,7 @@ function renderOverview(){
 // ==================== 导入导出 ====================
 function exportData(){
   const keys = ['tasks','schedules','customers','visits'];
-  const allData = {app:'工作助手', version:'2.5', exportDate: new Date().toISOString()};
+  const allData = {app:'工作助手', version:'2.6', exportDate: new Date().toISOString()};
   keys.forEach(k => { allData[k] = DB.get(k); });
   const blob = new Blob([JSON.stringify(allData, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
@@ -992,7 +998,7 @@ function renderDataStats(){
 
 // ==================== 初始化 ====================
 function init(){
-  document.getElementById('headerDate').textContent = new Date().toLocaleDateString('zh-CN',{month:'long',day:'numeric',weekday:'long'}) + ' · V2.5';
+  document.getElementById('headerDate').textContent = new Date().toLocaleDateString('zh-CN',{month:'long',day:'numeric',weekday:'long'}) + ' · V2.6';
   document.getElementById('scheduleDate').value = todayStr();
   renderOverview();
   renderDataStats();
