@@ -308,7 +308,7 @@ textarea{resize:vertical;min-height:80px}
       <div class="card-body" style="color:var(--text2);font-size:13px">
         <p>工作助手 · 医药代表日常工作管理</p>
         <p style="margin-top:4px">数据保存在手机本地，建议定期导出备份到微信/网盘。</p>
-        <p style="margin-top:4px;color:var(--text3)">版本 v2.3</p>
+        <p style="margin-top:4px;color:var(--text3)">版本 v2.4</p>
       </div>
     </div>
   </div>
@@ -592,17 +592,48 @@ function getClinicsOn(c, dateStr){
   const wd = weekdayOf(dateStr);
   return c.clinics.filter(cl => parseInt(cl.day) === wd);
 }
-// 未来N天（含今天）的值班/门诊摘要
-function getUpcoming(c, days){
-  const out = [];
+// 日期显示标签：今天/明天/本周周几/日期
+function dateLabel(d){
   const today = todayStr();
-  for(let i=0; i<days; i++){
+  if(d === today) return '今天';
+  if(d === addDays(today, 1)) return '明天';
+  const diff = daysBetween(today, d);
+  if(diff < 7) return WEEK_CN[weekdayOf(d)];
+  const dt = new Date(d+'T00:00:00');
+  return (dt.getMonth()+1)+'/'+dt.getDate();
+}
+// 未来最近的 N 个值班日
+function getUpcomingDuties(c, count){
+  const out = [];
+  if(!c.duty || !c.duty.on || !c.duty.start) return out;
+  const today = todayStr();
+  for(let i=0; i<=180 && out.length<count; i++){
     const d = addDays(today, i);
-    const label = i===0 ? '今天' : (i===1 ? '明天' : WEEK_CN[weekdayOf(d)]);
-    if(isDutyDay(c, d)) out.push(label+'值班');
-    getClinicsOn(c, d).forEach(cl => out.push(label+'门诊('+cl.time+')'));
+    if(isDutyDay(c, d)) out.push(d);
   }
   return out;
+}
+// 未来最近的 N 次门诊（含时段）
+function getUpcomingClinics(c, count){
+  const out = [];
+  if(!c.clinics || !c.clinics.length) return out;
+  const today = todayStr();
+  for(let i=0; i<=28 && out.length<count; i++){
+    const d = addDays(today, i);
+    getClinicsOn(c, d).forEach(cl => {
+      if(out.length < count) out.push({date: d, time: cl.time});
+    });
+  }
+  return out;
+}
+// 客户最近排班摘要：未来3个值班日 + 未来3次门诊
+function getUpcoming(c){
+  const lines = [];
+  const duties = getUpcomingDuties(c, 3);
+  if(duties.length) lines.push('值班: '+duties.map(dateLabel).join('、'));
+  const clinics = getUpcomingClinics(c, 3);
+  if(clinics.length) lines.push('门诊: '+clinics.map(cl => dateLabel(cl.date)+cl.time).join('、'));
+  return lines;
 }
 // 某天所有客户的自动排班条目
 function getAutoEntriesForDate(dateStr){
@@ -778,10 +809,10 @@ function renderCustomers(){
   el.innerHTML = list.map(c=>{
     const stageColor = c.stage==='已合作'?'var(--accent)':(c.stage==='重点'?'var(--orange)':'var(--blue)');
     const initials = (c.name||'?').slice(0,1);
-    // 最近3天值班/门诊
-    const up = getUpcoming(c, 3);
-    const upHtml = up.length
-      ? '<div class="list-meta" style="color:var(--accent);font-weight:600;margin-top:3px">🏥 '+up.map(escHtml).join(' · ')+'</div>'
+    // 未来3个值班日 + 未来3次门诊
+    const upLines = getUpcoming(c);
+    const upHtml = upLines.length
+      ? upLines.map(l => '<div class="list-meta" style="color:var(--accent);font-weight:600;margin-top:2px">🏥 '+escHtml(l)+'</div>').join('')
       : '';
     return '<div class="list-item" onclick="openCustomerModal(\''+c.id+'\')">'+
       '<div class="list-avatar">'+escHtml(initials)+'</div>'+
@@ -906,7 +937,7 @@ function renderOverview(){
 // ==================== 导入导出 ====================
 function exportData(){
   const keys = ['tasks','schedules','customers','visits'];
-  const allData = {app:'工作助手', version:'2.3', exportDate: new Date().toISOString()};
+  const allData = {app:'工作助手', version:'2.4', exportDate: new Date().toISOString()};
   keys.forEach(k => { allData[k] = DB.get(k); });
   const blob = new Blob([JSON.stringify(allData, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
@@ -962,7 +993,7 @@ function renderDataStats(){
 
 // ==================== 初始化 ====================
 function init(){
-  document.getElementById('headerDate').textContent = new Date().toLocaleDateString('zh-CN',{month:'long',day:'numeric',weekday:'long'}) + ' · V2.3';
+  document.getElementById('headerDate').textContent = new Date().toLocaleDateString('zh-CN',{month:'long',day:'numeric',weekday:'long'}) + ' · V2.4';
   document.getElementById('scheduleDate').value = todayStr();
   renderOverview();
   renderDataStats();
