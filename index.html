@@ -280,30 +280,31 @@ textarea{resize:vertical;min-height:80px}
   <!-- ===== 设置 ===== -->
   <div class="page" id="page-settings">
     <div class="card">
-      <div class="card-header"><span class="card-title">☁️ 云端同步</span></div>
+      <div class="card-header"><span class="card-title">💾 数据备份</span></div>
       <div class="card-body">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-          <span id="syncStatus" class="sync-status off">未连接</span>
-        </div>
-        <div class="form-group">
-          <label class="form-label">GitHub Token</label>
-          <input type="password" id="syncTokenInput" placeholder="输入 GitHub Token 以启用云端同步">
-        </div>
         <div style="display:flex;gap:8px">
-          <button class="btn btn-primary" style="flex:1" onclick="saveSyncToken()">保存Token</button>
+          <button class="btn btn-primary" style="flex:1" onclick="exportData()">📤 导出数据</button>
         </div>
         <div style="display:flex;gap:8px;margin-top:8px">
-          <button class="btn btn-outline" style="flex:1" onclick="pushToCloud()">☁️ 同步到云端</button>
-          <button class="btn btn-outline" style="flex:1" onclick="pullFromCloud()">⬇️ 从云端拉取</button>
+          <button class="btn btn-outline" style="flex:1" onclick="document.getElementById('importFile').click()">📥 导入数据</button>
         </div>
+        <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(this)">
+        <p style="font-size:12px;color:var(--text3);margin-top:12px;line-height:1.6">
+          📤 <b>导出</b>：把所有数据（任务/日程/客户/拜访）保存成文件，可发送到微信或存到网盘备份。<br>
+          📥 <b>导入</b>：选择之前导出的备份文件，恢复全部数据（换手机时用）。
+        </p>
       </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">📊 数据统计</span></div>
+      <div class="card-body" id="dataStats"></div>
     </div>
     <div class="card">
       <div class="card-header"><span class="card-title">ℹ️ 关于</span></div>
       <div class="card-body" style="color:var(--text2);font-size:13px">
         <p>工作助手 · 医药代表日常工作管理</p>
-        <p style="margin-top:4px">数据默认保存在手机本地，建议开启云端同步防止丢失。</p>
-        <p style="margin-top:4px;color:var(--text3)">版本 v2.0</p>
+        <p style="margin-top:4px">数据保存在手机本地，建议定期导出备份到微信/网盘。</p>
+        <p style="margin-top:4px;color:var(--text3)">版本 v2.1</p>
       </div>
     </div>
   </div>
@@ -340,9 +341,6 @@ const DB = {
   genId(){ return 'id_'+Date.now()+'_'+Math.random().toString(36).slice(2,8) }
 };
 
-const SYNC_KEY = 'wa_sync_token';
-const REPO = 'cjmlyd/workbox';
-
 // ==================== 工具函数 ====================
 function escHtml(s){ return (s||'').replace(/[<>&"']/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c])) }
 function escAttr(s){ return (s||'').replace(/"/g,'&quot;') }
@@ -376,7 +374,7 @@ function switchPage(name){
   if(name==='schedule') renderSchedule();
   if(name==='customers') renderCustomers();
   if(name==='visits') renderVisits();
-  if(name==='settings') updateSyncUI();
+  if(name==='settings') renderDataStats();
 }
 
 // ==================== 模态弹窗 ====================
@@ -721,79 +719,61 @@ function renderOverview(){
   }
 }
 
-// ==================== 云端同步 ====================
-function getSyncToken(){ return localStorage.getItem(SYNC_KEY); }
-function saveSyncToken(){
-  const token = document.getElementById('syncTokenInput').value.trim();
-  if(!token){ toast('请输入Token'); return; }
-  localStorage.setItem(SYNC_KEY, token);
-  updateSyncUI();
-  toast('Token已保存');
+// ==================== 导入导出 ====================
+function exportData(){
+  const keys = ['tasks','schedules','customers','visits'];
+  const allData = {app:'工作助手', version:'2.1', exportDate: new Date().toISOString()};
+  keys.forEach(k => { allData[k] = DB.get(k); });
+  const blob = new Blob([JSON.stringify(allData, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '工作助手备份_' + todayStr() + '.json';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 500);
+  toast('✅ 已导出备份文件');
 }
-function updateSyncUI(){
-  const token = getSyncToken();
-  const el = document.getElementById('syncStatus');
-  const input = document.getElementById('syncTokenInput');
-  if(token){
-    el.className = 'sync-status on';
-    el.textContent = '已连接';
-    if(input && !input.value) input.value = token;
-  } else {
-    el.className = 'sync-status off';
-    el.textContent = '未连接';
-  }
-}
-async function githubAPI(method, path, body){
-  const token = getSyncToken();
-  if(!token) throw new Error('未配置Token');
-  const headers = {'Authorization':'token '+token, 'Accept':'application/vnd.github+json'};
-  const opts = {method, headers};
-  if(body){ headers['Content-Type']='application/json'; opts.body = JSON.stringify(body); }
-  const resp = await fetch('https://api.github.com/repos/'+REPO+'/'+path, opts);
-  if(!resp.ok){ const e = await resp.text(); throw new Error(e.slice(0,200)); }
-  return resp.json();
-}
-async function pushToCloud(){
-  const token = getSyncToken();
-  if(!token){ toast('请先在设置中配置Token'); return; }
-  toast('正在同步到云端...');
-  try {
-    const keys = ['tasks','schedules','customers','visits'];
-    const allData = {};
-    keys.forEach(k => { allData[k] = DB.get(k); });
-    const content = btoa(unescape(encodeURIComponent(JSON.stringify(allData, null, 2))));
-    let sha = null;
-    try { const existing = await githubAPI('GET','contents/data.json'); sha = existing.sha; } catch(e){}
-    await githubAPI('PUT','contents/data.json', {
-      message: '工作助手数据同步 ' + new Date().toLocaleString('zh-CN'),
-      content: content,
-      branch: 'main'
-    });
-    if(sha) {} // 更新已有文件
-    toast('✅ 已同步到云端');
-  } catch(e){
-    toast('同步失败: ' + e.message.slice(0,80));
-  }
-}
-async function pullFromCloud(){
-  const token = getSyncToken();
-  if(!token){ toast('请先在设置中配置Token'); return; }
-  toast('正在从云端拉取...');
-  try {
-    const result = await githubAPI('GET','contents/data.json');
-    if(result.content){
-      const data = JSON.parse(atob(result.content));
-      ['tasks','schedules','customers','visits'].forEach(k => {
-        if(data[k] !== undefined) DB.set(k, data[k]);
+function importData(input){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try {
+      const data = JSON.parse(e.target.result);
+      if(!data || typeof data !== 'object'){ toast('文件格式不对'); return; }
+      const keys = ['tasks','schedules','customers','visits'];
+      let imported = 0;
+      keys.forEach(k => {
+        if(Array.isArray(data[k])){
+          // 合并导入：以导入文件为准，替换现有数据
+          DB.set(k, data[k]);
+          imported++;
+        }
       });
-      toast('✅ 已从云端拉取');
-      renderOverview(); renderTasks(); renderSchedule(); renderCustomers(); renderVisits();
-    } else {
-      toast('云端暂无数据');
+      if(imported === 0){ toast('文件里没有工作助手数据'); return; }
+      toast('✅ 已导入 ' + imported + ' 类数据');
+      renderOverview(); renderTasks(); renderSchedule(); renderCustomers(); renderVisits(); renderDataStats();
+    } catch(err){
+      toast('导入失败：文件不是有效的备份');
     }
-  } catch(e){
-    toast('拉取失败: ' + e.message.slice(0,80));
-  }
+  };
+  reader.readAsText(file);
+  input.value = '';
+}
+function renderDataStats(){
+  const el = document.getElementById('dataStats');
+  if(!el) return;
+  const counts = {
+    '任务': getTasks().length,
+    '日程': getSchedules().length,
+    '客户': getCustomers().length,
+    '拜访记录': getVisits().length
+  };
+  el.innerHTML = '<div class="stats-row" style="margin-bottom:0">'
+    + Object.entries(counts).map(([k,v]) =>
+      '<div class="stat-card"><div class="stat-value">'+v+'</div><div class="stat-label">'+k+'</div></div>'
+    ).join('') + '</div>';
 }
 
 // ==================== 初始化 ====================
@@ -801,11 +781,7 @@ function init(){
   document.getElementById('headerDate').textContent = new Date().toLocaleDateString('zh-CN',{month:'long',day:'numeric',weekday:'long'});
   document.getElementById('scheduleDate').value = todayStr();
   renderOverview();
-  updateSyncUI();
-  // 如果有token，启动时自动拉取
-  if(getSyncToken()){
-    pullFromCloud();
-  }
+  renderDataStats();
 }
 if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
 else init();
