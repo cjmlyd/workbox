@@ -1,5 +1,5 @@
 // 工作助手 Service Worker - 离线缓存
-const CACHE_NAME = 'workbox-v100';
+const CACHE_NAME = 'workbox-v101';
 const CACHE_FILES = [
   './',
   './index.html',
