@@ -1,12 +1,12 @@
 {
-  "name": "工作助手 - 医药代表日常工作管理",
+  "name": "工作助手 V3.0",
   "short_name": "工作助手",
-  "description": "医药代表日常工作管理助手：任务管理、日程安排、客户拜访跟踪、资料整理",
+  "description": "医药代表日常工作管理 V3.0 全新版",
   "start_url": "./index.html",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#F7F7F5",
-  "theme_color": "#2383E2",
+  "background_color": "#F8FAFC",
+  "theme_color": "#4F46E5",
   "lang": "zh-CN",
   "scope": "./",
   "icons": [
