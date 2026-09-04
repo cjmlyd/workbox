@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#4F46E5">
+<title>工作助手 · V3.0</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="favicon.png">
+<style>
+:root{
+  --primary:#4F46E5;
+  --primary-light:#EEF2FF;
+  --short:#F59E0B;
+  --short-light:#FEF3C7;
+  --long:#4F46E5;
+  --long-light:#EEF2FF;
+  --bg:#F8FAFC;
+  --card:#FFFFFF;
+  --border:#E2E8F0;
+  --text:#0F172A;
+  --text2:#64748B;
+  --text3:#94A3B8;
+  --danger:#EF4444;
+  --success:#10B981;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;font-size:16px;line-height:1.5;overflow-x:hidden}
+button{font-family:inherit;font-size:inherit;color:inherit;background:none;border:none;padding:0;cursor:pointer}
+input,textarea,select{font-family:inherit;font-size:16px;color:var(--text)}
+.app{max-width:480px;margin:0 auto;min-height:100vh;background:var(--bg);position:relative;padding-bottom:80px}
+
+/* ==== 顶部 ==== */
+.header{position:sticky;top:0;z-index:50;background:var(--card);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:14px 16px}
+.header h1{margin:0;font-size:18px;font-weight:700}
+.header .h-version{font-size:11px;color:var(--text3);margin-left:6px}
+.header .h-date{font-size:13px;color:var(--text2)}
+.icon-btn{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--text2)}
+.icon-btn:active{background:var(--bg)}
+
+/* ==== 页面容器 ==== */
+.page{display:none;padding:0 0 20px}
+.page.active{display:block}
+
+/* ==== 日期条 ==== */
+.date-bar{padding:14px 16px 6px;font-size:14px;color:var(--text2);font-weight:500}
+
+/* ==== 分区标题 ==== */
+.section-head{display:flex;align-items:center;justify-content:space-between;padding:18px 16px 8px;font-size:13px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
+.section-head .count{font-size:13px;color:var(--text3);font-weight:500}
+.section-toggle{display:flex;align-items:center;gap:4px;cursor:pointer;color:var(--text2)}
+
+/* ==== 卡片/列表 ==== */
+.card{background:var(--card);margin:8px 12px;border-radius:14px;border:1px solid var(--border);overflow:hidden}
+.list-item{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--border);min-height:60px}
+.list-item:last-child{border-bottom:none}
+.list-item:active{background:var(--bg)}
+.list-check{width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.list-main{flex:1;min-width:0;cursor:pointer}
+.list-title{font-weight:600;font-size:15px;line-height:1.4}
+.list-title.done{text-decoration:line-through;color:var(--text3);font-weight:500}
+.list-sub{font-size:12px;color:var(--text2);margin-top:3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.list-side{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.kind-tag{font-size:11px;padding:4px 8px;border-radius:6px;font-weight:600;white-space:nowrap}
+.kind-long{background:var(--long-light);color:var(--long)}
+.kind-short{background:var(--short-light);color:var(--short)}
+
+/* ==== 阶段 chip ==== */
+.filter-row{display:flex;gap:8px;padding:12px 16px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.filter-row::-webkit-scrollbar{display:none}
+.chip{padding:8px 14px;border-radius:20px;background:var(--card);border:1px solid var(--border);font-size:13px;font-weight:500;color:var(--text2);white-space:nowrap;cursor:pointer}
+.chip.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+
+/* ==== 客户卡片 ==== */
+.customer-card{background:var(--card);margin:8px 12px;border-radius:14px;border:1px solid var(--border);padding:16px;cursor:pointer}
+.customer-card:active{background:var(--bg)}
+.customer-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.customer-name{font-size:17px;font-weight:700}
+.stage-pill{font-size:11px;padding:3px 8px;border-radius:6px;font-weight:600}
+.stage-意向{background:#DBEAFE;color:#1D4ED8}
+.stage-重点{background:#FEF3C7;color:#B45309}
+.stage-已合作{background:#D1FAE5;color:#047857}
+.customer-meta{font-size:13px;color:var(--text2);margin-bottom:8px}
+.schedule-line{font-size:12px;color:var(--text2);padding:3px 0;display:flex;align-items:center;gap:6px}
+.schedule-tag{font-size:10px;padding:2px 6px;border-radius:4px;background:var(--primary-light);color:var(--primary);font-weight:600}
+
+/* ==== 底部 tab ==== */
+.tab-bar{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);display:flex;justify-content:space-around;padding:8px 0 max(8px, env(safe-area-inset-bottom));z-index:50;max-width:480px;margin:0 auto}
+.tab-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px;color:var(--text3);font-size:11px;font-weight:500}
+.tab-item.active{color:var(--primary)}
+.tab-item .tab-icon{font-size:22px;line-height:1}
+.tab-add{width:56px;height:56px;background:var(--primary);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;margin-top:-20px;box-shadow:0 6px 16px rgba(79,70,229,.35)}
+.tab-add:active{transform:scale(.96)}
+
+/* ==== 模态（底部 sheet） ==== */
+.sheet-mask{position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:100;display:none;align-items:flex-end;justify-content:center}
+.sheet-mask.open{display:flex}
+.sheet{background:var(--card);width:100%;max-width:480px;border-radius:20px 20px 0 0;padding:20px 16px max(20px, env(safe-area-inset-bottom));max-height:90vh;overflow:auto;animation:sheetUp .25s ease}
+@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.sheet-title{font-size:17px;font-weight:700;text-align:center;margin:0 0 16px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:13px;color:var(--text2);margin-bottom:6px;font-weight:500}
+.field input,.field select,.field textarea{width:100%;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--card);outline:none}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--primary)}
+.field textarea{resize:vertical;min-height:60px}
+.field-row{display:flex;gap:10px}
+.field-row .field{flex:1}
+.kind-pick{display:flex;gap:8px}
+.kind-pick-opt{flex:1;padding:12px;border:1px solid var(--border);border-radius:10px;text-align:center;font-size:14px;font-weight:600;cursor:pointer}
+.kind-pick-opt:has(input:checked){background:var(--primary-light);border-color:var(--primary);color:var(--primary)}
+.kind-pick-opt input{display:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;padding:12px 18px;border-radius:10px;font-weight:600;font-size:15px;cursor:pointer;min-height:48px;transition:all .15s}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:active{transform:scale(.98)}
+.btn-danger{color:var(--danger)}
+.btn-block{width:100%}
+.btn-row{display:flex;gap:10px;margin-top:8px}
+.btn-row .btn{flex:1}
+
+/* ==== 步骤器（值班每几天） ==== */
+.stepper{display:flex;align-items:center;gap:10px;background:var(--bg);border-radius:10px;padding:4px 8px}
+.stepper button{width:36px;height:36px;border-radius:8px;font-size:18px;font-weight:700;color:var(--primary);background:var(--card);border:1px solid var(--border)}
+.stepper button:active{background:var(--primary-light)}
+.stepper-value{flex:1;text-align:center;font-weight:700;font-size:16px;color:var(--text)}
+.stepper-unit{font-size:13px;color:var(--text2);margin-left:4px}
+
+/* ==== 门诊行 ==== */
+.clinic-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.clinic-row select{flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card)}
+.clinic-row button{width:36px;height:36px;border-radius:8px;color:var(--danger);background:var(--card);border:1px solid var(--border)}
+
+/* ==== 空状态 ==== */
+.empty{padding:60px 24px;text-align:center;color:var(--text3)}
+.empty-icon{font-size:48px;margin-bottom:12px;opacity:.4}
+.empty-text{font-size:14px;line-height:1.6}
+
+/* ==== Toast ==== */
+.toast{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(15,23,42,.92);color:#fff;padding:10px 18px;border-radius:10px;font-size:14px;z-index:200;opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.show{opacity:1}
+
+/* ==== 折叠区 ==== */
+.fold-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;font-size:13px;color:var(--text2);font-weight:600;background:var(--card);border:1px solid var(--border);border-radius:12px;margin:8px 12px;cursor:pointer}
+.fold-caret{transition:transform .2s}
+.fold-caret.open{transform:rotate(90deg)}
+.fold-body{display:none;margin:0 12px;background:var(--card);border:1px solid var(--border);border-top:none;border-radius:0 0 12px 12px;overflow:hidden}
+.fold-body.open{display:block}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- 顶部 -->
+  <header class="header">
+    <div>
+      <h1>工作助手<span class="h-version">V3.0</span></h1>
+      <div class="h-date" id="headerDate"></div>
+    </div>
+    <button class="icon-btn" onclick="goSettings()" aria-label="设置">⚙️</button>
+  </header>
+
+  <!-- ============ 任务页 ============ -->
+  <section class="page active" id="page-tasks">
+    <div id="taskList"></div>
+  </section>
+
+  <!-- ============ 日程页 ============ -->
+  <section class="page" id="page-schedule">
+    <div class="section-head" style="padding:14px 16px 8px">
+      <span>手动日程</span>
+      <button class="chip" onclick="openScheduleModal()" style="border:none;background:var(--primary-light);color:var(--primary)">＋ 新建</button>
+    </div>
+    <div id="scheduleList"></div>
+    <div class="fold-head" onclick="toggleFold('auto')">
+      <span>📋 今日排班（自动）</span>
+      <span class="fold-caret" id="fold-caret-auto">▶</span>
+    </div>
+    <div class="fold-body" id="fold-body-auto"></div>
+  </section>
+
+  <!-- ============ 客户页 ============ -->
+  <section class="page" id="page-customers">
+    <div class="filter-row" id="stageChips"></div>
+    <div id="customerList"></div>
+  </section>
+
+  <!-- ============ 设置页 ============ -->
+  <section class="page" id="page-settings">
+    <div class="section-head"><span>数据</span></div>
+    <div class="card">
+      <div class="list-item" onclick="exportData()" style="cursor:pointer">
+        <div class="list-check">📤</div>
+        <div class="list-main">
+          <div class="list-title">导出数据</div>
+          <div class="list-sub">下载 JSON 备份文件</div>
+        </div>
+        <span style="color:var(--text3)">›</span>
+      </div>
+      <div class="list-item" onclick="document.getElementById('importFile').click()" style="cursor:pointer">
+        <div class="list-check">📥</div>
+        <div class="list-main">
+          <div class="list-title">导入数据</div>
+          <div class="list-sub">从备份文件恢复（会覆盖当前数据）</div>
+        </div>
+        <span style="color:var(--text3)">›</span>
+      </div>
+      <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(this)">
+    </div>
+    <div class="section-head"><span>关于</span></div>
+    <div class="card">
+      <div class="list-item">
+        <div class="list-check">ℹ️</div>
+        <div class="list-main">
+          <div class="list-title">工作助手 V3.0</div>
+          <div class="list-sub">医药代表日常工作管理</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- 底部 tab -->
+<nav class="tab-bar">
+  <button class="tab-item active" onclick="switchTab('tasks')"><span class="tab-icon">☑️</span><span>任务</span></button>
+  <button class="tab-item" onclick="switchTab('schedule')"><span class="tab-icon">📅</span><span>日程</span></button>
+  <button class="tab-add" onclick="showAddMenu()" aria-label="新增">＋</button>
+  <button class="tab-item" onclick="switchTab('customers')"><span class="tab-icon">👥</span><span>客户</span></button>
+  <button class="tab-item" onclick="switchTab('settings')"><span class="tab-icon">⚙️</span><span>设置</span></button>
+</nav>
+
+<!-- 底部 sheet 容器 -->
+<div class="sheet-mask" id="sheetMask" onclick="closeSheet(event)">
+  <div class="sheet" id="sheetBody" onclick="event.stopPropagation()"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============== 常量 ==============
+const WEEK_CN = ['日','一','二','三','四','五','六'];
+const STAGES = ['全部','重点','意向','已合作'];
+
+// ============== 数据层 ==============
+const DB = {
+  get(k){ try{ return JSON.parse(localStorage.getItem('wa_v3_'+k)) || []; }catch{ return []; } },
+  set(k,v){ localStorage.setItem('wa_v3_'+k, JSON.stringify(v)); },
+  genId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+};
+
+function getCustomers(){ return DB.get('customers'); }
+function getTasks(){ return DB.get('tasks'); }
+function getSchedules(){ return DB.get('schedules'); }
+
+function todayStr(){
+  const d = new Date();
+  return [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-');
+}
+function daysBetween(a,b){
+  const ms = new Date(b+'T00:00:00') - new Date(a+'T00:00:00');
+  return Math.round(ms / 86400000);
+}
+function dateLabel(d){
+  const dt = new Date(d+'T00:00:00');
+  return (dt.getMonth()+1)+'/'+dt.getDate();
+}
+function escHtml(s){ return (s||'').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function escAttr(s){ return escHtml(s); }
+
+// ============== Toast ==============
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=>t.classList.remove('show'), 1800);
+}
+
+// ============== 顶部日期 ==============
+function renderHeader(){
+  const d = new Date();
+  const w = WEEK_CN[d.getDay()];
+  document.getElementById('headerDate').textContent = `${d.getMonth()+1}月${d.getDate()}日 · 周${w}`;
+}
+
+// ============== 任务 ==============
+function autoKind(due){
+  const diff = daysBetween(todayStr(), due || todayStr());
+  if(isNaN(diff) || diff <= 7) return 'short';
+  return 'long';
+}
+function cleanupShortTasks(){
+  const today = todayStr();
+  const tasks = getTasks().filter(t => {
+    if(t.kind === 'long') return true;
+    if(t.status === 'done' && t.dueDate && t.dueDate !== today) return false;
+    return true;
+  });
+  DB.set('tasks', tasks);
+}
+function addTask(data){
+  const tasks = getTasks();
+  tasks.push(Object.assign({id:DB.genId(), status:'todo', created:Date.now()}, data));
+  DB.set('tasks', tasks);
+}
+function updateTask(id, patch){
+  const tasks = getTasks();
+  const t = tasks.find(x => x.id===id);
+  if(t) Object.assign(t, patch);
+  DB.set('tasks', tasks);
+}
+function deleteTask(id){
+  DB.set('tasks', getTasks().filter(t => t.id!==id));
+}
+function toggleTaskStatus(id){
+  const t = getTasks().find(x=>x.id===id);
+  if(!t) return;
+  updateTask(id, {status: t.status==='done'?'todo':'done'});
+}
+function toggleTaskKind(id){
+  const t = getTasks().find(x=>x.id===id);
+  if(!t) return;
+  const next = t.kind==='long' ? 'short' : 'long';
+  updateTask(id, {kind: next});
+  toast(next==='long'?'已转为长期任务':'已转为短期任务');
+  renderTasks();
+}
+
+function renderTasks(){
+  cleanupShortTasks();
+  const tasks = getTasks();
+  const longTasks = tasks.filter(t => t.kind==='long');
+  const shortTasks = tasks.filter(t => t.kind!=='long');
+
+  const sortFn = (a,b) => {
+    if((a.dueDate||'') !== (b.dueDate||'')) return (a.dueDate||'').localeCompare(b.dueDate||'');
+    return (b.created||0) - (a.created||0);
+  };
+  longTasks.sort(sortFn);
+  shortTasks.sort(sortFn);
+
+  const longDone = longTasks.filter(t => t.status==='done');
+  const longActive = longTasks.filter(t => t.status!=='done');
+  // 短期任务：只显示未完成的（已完成的当天就清，但保留 active）
+  const shortActive = shortTasks.filter(t => t.status!=='done');
+
+  const el = document.getElementById('taskList');
+
+  const renderItem = (t) => {
+    const isLong = t.kind==='long';
+    const doneCls = t.status==='done' ? 'done' : '';
+    const dueTxt = t.dueDate ? dateLabel(t.dueDate) + (daysBetween(todayStr(), t.dueDate) > 0 ? ' · '+daysBetween(todayStr(), t.dueDate)+'天后' : (daysBetween(todayStr(), t.dueDate)===0 ? ' · 今天' : ' · 已过期')) : '';
+    const priLabel = t.priority==='high'?'🔴':(t.priority==='mid'?'🟡':'🔵');
+    return `<div class="list-item" data-id="${t.id}">
+      <button class="list-check" onclick="toggleTaskStatus('${t.id}')">${t.status==='done'?'✅':'⬜'}</button>
+      <div class="list-main" onclick="openTaskModal('${t.id}')">
+        <div class="list-title ${doneCls}">${escHtml(t.title)}</div>
+        <div class="list-sub">${dueTxt} ${priLabel}${t.note?' · '+escHtml(t.note):''}</div>
+      </div>
+      <div class="list-side">
+        <button class="kind-tag ${isLong?'kind-long':'kind-short'}" onclick="toggleTaskKind('${t.id}')" title="切换类型">${isLong?'📌 长期':'⏰ 短期'}</button>
+      </div>
+    </div>`;
+  };
+
+  if(!longActive.length && !shortActive.length && !longDone.length){
+    el.innerHTML = `<div class="empty"><div class="empty-icon">☐</div><div class="empty-text">还没有任务<br>点中间的 ＋ 新建一条</div></div>`;
+    return;
+  }
+
+  let html = '';
+  if(longActive.length){
+    html += `<div class="section-head"><span>📌 长期任务</span><span class="count">${longActive.length} 条</span></div>`;
+    html += `<div class="card">${longActive.map(renderItem).join('')}</div>`;
+  }
+  if(shortActive.length){
+    html += `<div class="section-head"><span>⏰ 短期任务</span><span class="count">${shortActive.length} 条</span></div>`;
+    html += `<div class="card">${shortActive.map(renderItem).join('')}</div>`;
+  }
+  if(longDone.length){
+    html += `<div class="section-head"><span>✅ 已完成（长期保留）</span><span class="count">${longDone.length} 条</span></div>`;
+    html += `<div class="card">${longDone.map(renderItem).join('')}</div>`;
+  }
+  el.innerHTML = html;
+}
+
+function openTaskModal(editId){
+  const t = editId ? getTasks().find(x=>x.id===editId) : null;
+  const curKind = t ? t.kind : 'short';
+  const body = `
+    <div class="field"><label>任务标题</label><input id="m-title" type="text" placeholder="如：拜访 XX 主任" value="${escAttr(t?t.title:'')}"></div>
+    <div class="field-row">
+      <div class="field"><label>截止日期</label><input id="m-due" type="date" value="${escAttr(t?t.dueDate:todayStr())}"></div>
+      <div class="field"><label>优先级</label>
+        <select id="m-pri">
+          <option value="high" ${t&&t.priority==='high'?'selected':''}>🔴 高</option>
+          <option value="mid" ${(!t||t.priority==='mid')?'selected':''}>🟡 中</option>
+          <option value="low" ${t&&t.priority==='low'?'selected':''}>🔵 低</option>
+        </select>
+      </div>
+    </div>
+    <div class="field"><label>任务类型</label>
+      <div class="kind-pick">
+        <label class="kind-pick-opt"><input type="radio" name="k" value="short" ${curKind==='short'?'checked':''}>⏰ 短期</label>
+        <label class="kind-pick-opt"><input type="radio" name="k" value="long" ${curKind==='long'?'checked':''}>📌 长期</label>
+      </div>
+    </div>
+    <div class="field"><label>备注</label><textarea id="m-note" placeholder="可选">${escHtml(t?t.note:'')}</textarea></div>
+    <button class="btn btn-primary btn-block" onclick="saveTask('${editId||''}')">${editId?'更新':'保存'}</button>
+    ${editId?`<button class="btn btn-danger btn-block" style="margin-top:8px" onclick="confirmDelTask('${editId}')">删除任务</button>`:''}
+  `;
+  openSheet(editId?'编辑任务':'新建任务', body);
+  setTimeout(()=>document.getElementById('m-title').focus(), 60);
+}
+
+function saveTask(editId){
+  const title = document.getElementById('m-title').value.trim();
+  if(!title){ toast('请输入任务标题'); return; }
+  const data = {
+    title,
+    dueDate: document.getElementById('m-due').value,
+    priority: document.getElementById('m-pri').value,
+    note: document.getElementById('m-note').value.trim(),
+    kind: document.querySelector('input[name="k"]:checked').value
+  };
+  if(editId){ updateTask(editId, data); toast('已更新'); }
+  else { addTask(data); toast('已添加'); }
+  closeSheet();
+  renderTasks();
+}
+function confirmDelTask(id){
+  if(!confirm('确定删除这条任务？')) return;
+  deleteTask(id);
+  closeSheet();
+  renderTasks();
+  toast('已删除');
+}
+
+// ============== 客户 ==============
+function addCustomer(data){
+  const list = getCustomers();
+  list.push(Object.assign({id:DB.genId(), created:Date.now()}, data));
+  DB.set('customers', list);
+}
+function updateCustomer(id, patch){
+  const list = getCustomers();
+  const c = list.find(x=>x.id===id);
+  if(c) Object.assign(c, patch);
+  DB.set('customers', list);
+}
+function deleteCustomer(id){
+  DB.set('customers', getCustomers().filter(c=>c.id!==id));
+}
+
+let stageFilter = '全部';
+function setStageFilter(s){
+  stageFilter = s;
+  renderStageChips();
+  renderCustomers();
+}
+function renderStageChips(){
+  document.getElementById('stageChips').innerHTML = STAGES.map(s => 
+    `<button class="chip ${stageFilter===s?'active':''}" onclick="setStageFilter('${s}')">${s}</button>`
+  ).join('');
+}
+
+// 值班：起始日 + 每N天
+function isDutyDay(c, dateStr){
+  if(!c.duty || !c.duty.on || !c.duty.start) return false;
+  const diff = daysBetween(c.duty.start, dateStr);
+  const every = parseInt(c.duty.every) || 1;
+  return diff >= 0 && diff % every === 0;
+}
+function getClinicsOn(c, dateStr){
+  if(!c.clinics || !c.clinics.length) return [];
+  const wd = new Date(dateStr+'T00:00:00').getDay();
+  return c.clinics.filter(cl => parseInt(cl.day) === wd);
+}
+function getUpcomingDuties(c, count){
+  const out = [];
+  if(!c.duty || !c.duty.on || !c.duty.start) return out;
+  const today = todayStr();
+  for(let i=0; i<=180 && out.length<count; i++){
+    const d = addDays(today, i);
+    if(isDutyDay(c, d)) out.push(d);
+  }
+  return out;
+}
+function getUpcomingClinics(c, count){
+  const out = [];
+  if(!c.clinics || !c.clinics.length) return out;
+  const today = todayStr();
+  for(let i=0; i<=28 && out.length<count; i++){
+    const d = addDays(today, i);
+    getClinicsOn(c, d).forEach(cl => {
+      if(out.length < count) out.push({date:d, time:cl.time});
+    });
+  }
+  return out;
+}
+function addDays(d, n){
+  const dt = new Date(d+'T00:00:00');
+  dt.setDate(dt.getDate()+n);
+  return [dt.getFullYear(), String(dt.getMonth()+1).padStart(2,'0'), String(dt.getDate()).padStart(2,'0')].join('-');
+}
+function weekdayOf(d){
+  return new Date(d+'T00:00:00').getDay();
+}
+
+function renderCustomers(){
+  let list = getCustomers();
+  if(stageFilter !== '全部') list = list.filter(c => c.stage === stageFilter);
+  const el = document.getElementById('customerList');
+  if(!list.length){
+    el.innerHTML = `<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">还没有客户<br>点中间的 ＋ 添加</div></div>`;
+    return;
+  }
+  el.innerHTML = list.map(c => {
+    const duties = getUpcomingDuties(c, 3);
+    const clinics = getUpcomingClinics(c, 3);
+    const dutyLines = duties.length ? duties.slice(0,2).map((d,i)=>`<div class="schedule-line"><span class="schedule-tag">值班</span> ${dateLabel(d)}${i===0?' 周'+WEEK_CN[weekdayOf(d)]:''}</div>`).join('') : '';
+    const clinicLines = clinics.length ? clinics.slice(0,2).map((cl,i)=>`<div class="schedule-line"><span class="schedule-tag">门诊</span> ${dateLabel(cl.date)}${i===0?' 周'+WEEK_CN[weekdayOf(cl.date)]:''} · ${cl.time}</div>`).join('') : '';
+    return `<div class="customer-card" onclick="openCustomerModal('${c.id}')">
+      <div class="customer-head">
+        <div class="customer-name">${escHtml(c.name||'未命名')}</div>
+        <div class="stage-pill stage-${escAttr(c.stage||'意向')}">${escHtml(c.stage||'意向')}</div>
+      </div>
+      <div class="customer-meta">${escHtml(c.hospital||'')}${c.department?' · '+escHtml(c.department):''}${c.title?' · '+escHtml(c.title):''}</div>
+      ${dutyLines}${clinicLines}
+    </div>`;
+  }).join('');
+}
+
+function openCustomerModal(editId){
+  const c = editId ? getCustomers().find(x=>x.id===editId) : null;
+  const duty = (c && c.duty) ? c.duty : {on:false, start:todayStr(), every:4};
+  const clinics = (c && c.clinics) ? c.clinics : [];
+  const body = `
+    <div class="field"><label>姓名 *</label><input id="cm-name" type="text" placeholder="客户姓名" value="${escAttr(c?c.name:'')}"></div>
+    <div class="field-row">
+      <div class="field"><label>职称</label><input id="cm-title" type="text" placeholder="如：主任医师" value="${escAttr(c?c.title:'')}"></div>
+      <div class="field"><label>阶段</label>
+        <select id="cm-stage">
+          <option ${c&&c.stage==='重点'?'selected':''}>重点</option>
+          <option ${!c||c.stage==='意向'?'selected':''}>意向</option>
+          <option ${c&&c.stage==='已合作'?'selected':''}>已合作</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>医院</label><input id="cm-hosp" type="text" value="${escAttr(c?c.hospital:'')}" placeholder="医院名称"></div>
+      <div class="field"><label>科室</label><input id="cm-dept" type="text" value="${escAttr(c?c.department:'')}" placeholder="科室"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>电话</label><input id="cm-phone" type="tel" value="${escAttr(c?c.phone:'')}"></div>
+      <div class="field"><label>微信</label><input id="cm-wechat" type="text" value="${escAttr(c?c.wechat:'')}"></div>
+    </div>
+    <div class="field"><label>推广产品</label><input id="cm-prod" type="text" value="${escAttr(c?c.product:'')}"></div>
+
+    <div class="section-head" style="padding:14px 0 6px"><span>排班配置</span></div>
+
+    <div class="field">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="cm-duty-on" ${duty.on?'checked':''} style="width:auto">
+        启用值班日（按周期轮转）
+      </label>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>起始日</label><input id="cm-duty-start" type="date" value="${escAttr(duty.start)}"></div>
+      <div class="field"><label>每几天一轮</label>
+        <div class="stepper">
+          <button onclick="stepEveryV3(-1)">−</button>
+          <span class="stepper-value"><span id="everyShow">${duty.every||4}</span><span class="stepper-unit">天</span></span>
+          <button onclick="stepEveryV3(1)">＋</button>
+        </div>
+        <input type="hidden" id="cm-duty-every" value="${duty.every||4}">
+      </div>
+    </div>
+
+    <div class="field"><label>固定门诊（每周固定时间）</label>
+      <div id="clinicRows"></div>
+      <button class="btn" style="background:var(--bg);font-size:13px;padding:8px 12px;min-height:36px" onclick="addClinicV3()">＋ 添加门诊时段</button>
+    </div>
+
+    <button class="btn btn-primary btn-block" onclick="saveCustomer('${editId||''}')">${editId?'更新':'保存'}</button>
+    ${editId?`<button class="btn btn-danger btn-block" style="margin-top:8px" onclick="confirmDelCustomer('${editId}')">删除客户</button>`:''}
+  `;
+  openSheet(editId?'编辑客户':'新建客户', body);
+  // 渲染门诊行
+  clinics.forEach(cl => addClinicV3(cl.day, cl.time));
+  setTimeout(()=>document.getElementById('cm-name').focus(), 60);
+}
+
+function stepEveryV3(n){
+  const el = document.getElementById('cm-duty-every');
+  let v = parseInt(el.value) || 4;
+  v = Math.max(1, Math.min(60, v + n));
+  el.value = v;
+  document.getElementById('everyShow').textContent = v;
+}
+
+let _clinicRows = [];
+function addClinicV3(day, time){
+  const wrap = document.getElementById('clinicRows');
+  const idx = _clinicRows.length;
+  _clinicRows.push({day: day!==undefined?day:1, time: time||'上午'});
+  const div = document.createElement('div');
+  div.className = 'clinic-row';
+  div.dataset.idx = idx;
+  div.innerHTML = `<select onchange="_clinicRows[${idx}].day=this.value">${WEEK_CN.map((w,i)=>`<option value="${i}" ${String(i)===String(day||1)?'selected':''}>周${w}</option>`).join('')}</select>
+    <select onchange="_clinicRows[${idx}].time=this.value">${['上午','下午','全天'].map(t=>`<option ${t===(time||'上午')?'selected':''}>${t}</option>`).join('')}</select>
+    <button onclick="this.parentNode.remove()">✕</button>`;
+  wrap.appendChild(div);
+}
+
+function saveCustomer(editId){
+  const data = {
+    name: document.getElementById('cm-name').value.trim(),
+    title: document.getElementById('cm-title').value.trim(),
+    stage: document.getElementById('cm-stage').value,
+    hospital: document.getElementById('cm-hosp').value.trim(),
+    department: document.getElementById('cm-dept').value.trim(),
+    phone: document.getElementById('cm-phone').value.trim(),
+    wechat: document.getElementById('cm-wechat').value.trim(),
+    product: document.getElementById('cm-prod').value.trim(),
+    duty: {
+      on: document.getElementById('cm-duty-on').checked,
+      start: document.getElementById('cm-duty-start').value,
+      every: parseInt(document.getElementById('cm-duty-every').value) || 4
+    },
+    clinics: _clinicRows.map(r => ({day:parseInt(r.day), time:r.time}))
+  };
+  if(!data.name){ toast('请输入姓名'); return; }
+  if(editId){ updateCustomer(editId, data); toast('已更新'); }
+  else { addCustomer(data); toast('已添加'); }
+  _clinicRows = [];
+  closeSheet();
+  renderCustomers();
+}
+function confirmDelCustomer(id){
+  if(!confirm('确定删除这个客户？\n关联的排班信息也会丢失')) return;
+  deleteCustomer(id);
+  _clinicRows = [];
+  closeSheet();
+  renderCustomers();
+  toast('已删除');
+}
+
+// ============== 日程 ==============
+function addSchedule(data){
+  const list = getSchedules();
+  list.push(Object.assign({id:DB.genId(), created:Date.now()}, data));
+  DB.set('schedules', list);
+}
+function updateSchedule(id, patch){
+  const list = getSchedules();
+  const s = list.find(x=>x.id===id);
+  if(s) Object.assign(s, patch);
+  DB.set('schedules', list);
+}
+function deleteSchedule(id){
+  DB.set('schedules', getSchedules().filter(s=>s.id!==id));
+}
+function toggleScheduleInTask(id){
+  const s = getSchedules().find(x=>x.id===id);
+  if(!s) return;
+  if(s.inTask){
+    // 移除：把对应的任务也删了
+    DB.set('tasks', getTasks().filter(t => t.schId !== id));
+    updateSchedule(id, {inTask:false});
+    toast('已从任务移除');
+  } else {
+    const kind = autoKind(s.date);
+    addTask({
+      title: s.title + (s.location?'（'+s.location+'）':''),
+      dueDate: s.date,
+      priority: 'mid',
+      note: '日程·'+(s.time||'全天'),
+      kind: kind,
+      schId: id
+    });
+    updateSchedule(id, {inTask:true, taskKind:kind});
+    const diff = daysBetween(todayStr(), s.date);
+    toast(diff>7?'已加入任务 · 长期':'已加入任务');
+  }
+  renderSchedule();
+  renderTasks();
+}
+
+function renderSchedule(){
+  const today = todayStr();
+  const items = getSchedules().filter(s => (s.date||'') >= today).sort((a,b) => {
+    if(a.date!==b.date) return a.date.localeCompare(b.date);
+    return (a.created||0)-(b.created||0);
+  });
+  const el = document.getElementById('scheduleList');
+  if(!items.length){
+    el.innerHTML = `<div class="empty"><div class="empty-icon">📅</div><div class="empty-text">还没有手动日程<br>点上面的「新建」</div></div>`;
+  } else {
+    const todayItems = items.filter(s => s.date === today);
+    const futureItems = items.filter(s => s.date !== today);
+    let html = '';
+    if(todayItems.length){
+      html += `<div class="section-head"><span>今天</span></div>`;
+      html += `<div class="card">${todayItems.map(renderSchItem).join('')}</div>`;
+    }
+    if(futureItems.length){
+      html += `<div class="section-head"><span>未来</span></div>`;
+      html += `<div class="card">${futureItems.map(renderSchItem).join('')}</div>`;
+    }
+    el.innerHTML = html;
+  }
+  renderAutoDuty();
+}
+
+function renderSchItem(s){
+  const today = todayStr();
+  const isToday = s.date === today;
+  const diff = daysBetween(today, s.date);
+  const dateTxt = isToday ? '今天' : dateLabel(s.date) + ' 周'+WEEK_CN[weekdayOf(s.date)];
+  const diffTxt = diff > 0 ? (diff+'天后') : '';
+  const willLong = diff > 7;
+  const inTask = s.inTask;
+  return `<div class="list-item" onclick="openScheduleModal('${s.id}')">
+    <button class="list-check" onclick="event.stopPropagation();toggleScheduleInTask('${s.id}')" title="${inTask?'已加入任务，点击移除':'加入任务'}">${inTask?'✅':'⬜'}</button>
+    <div class="list-main">
+      <div class="list-title">${escHtml(s.title||'')}</div>
+      <div class="list-sub">
+        <span>${dateTxt}</span>
+        ${s.time?'<span>· '+escHtml(s.time)+'</span>':''}
+        ${s.location?'<span>· '+escHtml(s.location)+'</span>':''}
+        ${diffTxt?'<span style="color:'+(willLong?'var(--long)':'var(--success)')+'">· '+diffTxt+'</span>':''}
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderAutoDuty(){
+  const today = todayStr();
+  const entries = [];
+  getCustomers().forEach(c => {
+    if(isDutyDay(c, today)){
+      entries.push({name:c.name, hospital:c.hospital||'', label:'值班日', icon:'🟢'});
+    }
+    getClinicsOn(c, today).forEach(cl => {
+      entries.push({name:c.name, hospital:c.hospital||'', label:'门诊·'+cl.time, icon:'🩺'});
+    });
+  });
+  const el = document.getElementById('fold-body-auto');
+  if(!entries.length){
+    el.innerHTML = `<div class="empty" style="padding:24px 16px"><div class="empty-text" style="font-size:13px">今日没有客户值班/门诊</div></div>`;
+    return;
+  }
+  el.innerHTML = entries.map(e => `<div class="list-item">
+    <div class="list-check">${e.icon}</div>
+    <div class="list-main">
+      <div class="list-title" style="font-size:14px">${escHtml(e.name)}</div>
+      <div class="list-sub">${escHtml(e.label)}${e.hospital?' · '+escHtml(e.hospital):''}</div>
+    </div>
+  </div>`).join('');
+}
+
+function toggleFold(name){
+  const caret = document.getElementById('fold-caret-'+name);
+  const body = document.getElementById('fold-body-'+name);
+  caret.classList.toggle('open');
+  body.classList.toggle('open');
+}
+
+function openScheduleModal(editId){
+  const s = editId ? getSchedules().find(x=>x.id===editId) : null;
+  const body = `
+    <div class="field-row">
+      <div class="field"><label>日期</label><input id="sm-date" type="date" value="${escAttr(s?s.date:todayStr())}"></div>
+      <div class="field"><label>时间段</label>
+        <select id="sm-time">
+          <option ${s&&s.time==='上午'?'selected':''}>上午</option>
+          <option ${!s||s.time==='下午'?'selected':''}>下午</option>
+          <option ${s&&s.time==='全天'?'selected':''}>全天</option>
+        </select>
+      </div>
+    </div>
+    <div class="field"><label>内容</label><input id="sm-title" type="text" placeholder="如：科室会、培训" value="${escAttr(s?s.title:'')}"></div>
+    <div class="field"><label>地点 / 客户</label><input id="sm-loc" type="text" placeholder="可选" value="${escAttr(s?s.location:'')}"></div>
+    <button class="btn btn-primary btn-block" onclick="saveSchedule('${editId||''}')">${editId?'更新':'保存'}</button>
+    ${editId?`<button class="btn btn-danger btn-block" style="margin-top:8px" onclick="confirmDelSchedule('${editId}')">删除日程</button>`:''}
+  `;
+  openSheet(editId?'编辑日程':'新建日程', body);
+  setTimeout(()=>document.getElementById('sm-title').focus(), 60);
+}
+
+function saveSchedule(editId){
+  const data = {
+    date: document.getElementById('sm-date').value,
+    time: document.getElementById('sm-time').value,
+    title: document.getElementById('sm-title').value.trim(),
+    location: document.getElementById('sm-loc').value.trim()
+  };
+  if(!data.title){ toast('请输入内容'); return; }
+  if(editId){ updateSchedule(editId, data); toast('已更新'); }
+  else { addSchedule(data); toast('已添加'); }
+  closeSheet();
+  renderSchedule();
+}
+function confirmDelSchedule(id){
+  if(!confirm('确定删除这条日程？')) return;
+  deleteSchedule(id);
+  closeSheet();
+  renderSchedule();
+  toast('已删除');
+}
+
+// ============== 数据导入导出 ==============
+function exportData(){
+  const payload = {
+    version: '3.0',
+    exportedAt: new Date().toISOString(),
+    data: {
+      customers: getCustomers(),
+      tasks: getTasks(),
+      schedules: getSchedules()
+    }
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const ts = new Date().toISOString().slice(0,10);
+  a.href = url;
+  a.download = `workbox-backup-${ts}.json`;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  toast('已导出 ' + a.download);
+}
+
+function importData(input){
+  const file = input.files[0];
+  if(!file) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const obj = JSON.parse(r.result);
+      if(!obj.data){ toast('文件格式不对'); return; }
+      if(!confirm('导入会覆盖当前所有数据，确定继续？')) return;
+      DB.set('customers', obj.data.customers || []);
+      DB.set('tasks', obj.data.tasks || []);
+      DB.set('schedules', obj.data.schedules || []);
+      renderAll();
+      toast('已导入');
+    } catch(e){
+      toast('导入失败：文件格式错误');
+    }
+    input.value = '';
+  };
+  r.readAsText(file);
+}
+
+// ============== 底部 sheet ==============
+function openSheet(title, body){
+  document.getElementById('sheetBody').innerHTML = `<h3 class="sheet-title">${title}</h3>${body}`;
+  document.getElementById('sheetMask').classList.add('open');
+}
+function closeSheet(e){
+  if(e && e.target !== e.currentTarget) return;
+  document.getElementById('sheetMask').classList.remove('open');
+  _clinicRows = [];
+}
+
+// ============== 中央 ＋ 菜单 ==============
+function showAddMenu(){
+  openSheet('新建', `
+    <div style="display:grid;gap:10px">
+      <button class="btn btn-primary btn-block" onclick="closeSheet();openTaskModal()">＋ 任务</button>
+      <button class="btn btn-block" style="background:var(--primary-light);color:var(--primary)" onclick="closeSheet();openScheduleModal()">＋ 日程</button>
+      <button class="btn btn-block" style="background:var(--primary-light);color:var(--primary)" onclick="closeSheet();openCustomerModal()">＋ 客户</button>
+    </div>
+  `);
+}
+
+// ============== 页面切换 ==============
+let currentTab = 'tasks';
+function switchTab(name){
+  currentTab = name;
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+  // 找到对应 tab 项
+  const map = {tasks:0, schedule:1, customers:3, settings:4};
+  const idx = map[name];
+  if(idx !== undefined) document.querySelectorAll('.tab-item')[idx].classList.add('active');
+  if(name === 'tasks') cleanupShortTasks();
+  renderAll();
+}
+function goSettings(){ switchTab('settings'); }
+
+// ============== 总渲染 ==============
+function renderAll(){
+  renderTasks();
+  renderSchedule();
+  renderCustomers();
+  renderAutoDuty();
+}
+
+// ============== 启动 ==============
+window.addEventListener('DOMContentLoaded', () => {
+  renderHeader();
+  renderStageChips();
+  renderAll();
+  // 注册 SW（如支持）
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  }
+});
+</script>
+</body>
+</html>
